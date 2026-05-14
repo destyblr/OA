@@ -1,0 +1,1067 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<title>OA — Ungating Scanner</title>
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config = {
+  theme: {
+    extend: {
+      fontFamily: {
+        sans: ['Inter Tight','ui-sans-serif','system-ui','sans-serif'],
+        mono: ['JetBrains Mono','ui-monospace','monospace'],
+      },
+      colors: {
+        zinc: {
+          50:  '#fafafa',
+          100: '#f4f4f5',
+          150: '#ececef',
+          200: '#e4e4e7',
+          300: '#d4d4d8',
+          400: '#a1a1aa',
+          500: '#71717a',
+          600: '#52525b',
+          700: '#3f3f46',
+          800: '#27272a',
+          900: '#0a0a0a',
+        },
+        cobalt: {
+          50:  '#eef1ff',
+          100: '#dde3ff',
+          400: '#5b6dff',
+          500: '#2540ff',
+          600: '#1d33d6',
+          700: '#1828a8',
+        },
+        emerald: {
+          50:  '#ecfdf5',
+          500: '#10b981',
+          600: '#059669',
+          700: '#047857',
+        },
+        amber: {
+          50:  '#fffbeb',
+          500: '#f59e0b',
+          700: '#b45309',
+        }
+      },
+      boxShadow: {
+        'card':    '0 0 0 1px rgba(9,9,11,0.05), 0 1px 1px rgba(9,9,11,0.02)',
+        'card-md': '0 0 0 1px rgba(9,9,11,0.06), 0 2px 4px -2px rgba(9,9,11,0.06), 0 4px 8px -4px rgba(9,9,11,0.04)',
+        'ring-cobalt': '0 0 0 3px rgba(37,64,255,0.18)',
+      }
+    }
+  }
+}
+</script>
+<style>
+  :root {
+    --bg: #ffffff;
+    --surface: #fafafa;
+    --border: #e4e4e7;
+    --border-strong: #d4d4d8;
+  }
+  html, body { background: var(--bg); }
+  body {
+    font-family: 'Inter Tight', system-ui, sans-serif;
+    color: #0a0a0a;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    font-feature-settings: 'ss01' on, 'cv11' on;
+  }
+  .mono { font-family: 'JetBrains Mono', monospace; font-feature-settings: 'zero' on; }
+
+  /* Inputs */
+  input[type="checkbox"].cb {
+    appearance: none; -webkit-appearance: none;
+    width: 16px; height: 16px;
+    border: 1.5px solid #d4d4d8;
+    background: #fff;
+    border-radius: 4px;
+    display: inline-grid; place-content: center;
+    cursor: pointer; transition: all .12s ease;
+  }
+  input[type="checkbox"].cb:hover { border-color: #a1a1aa; }
+  input[type="checkbox"].cb:checked {
+    background: #0a0a0a; border-color: #0a0a0a;
+  }
+  input[type="checkbox"].cb:checked::after {
+    content: ""; width: 9px; height: 9px;
+    background: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12' fill='none'><path d='M2.5 6.5l2.2 2.2L9.5 3.8' stroke='white' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'/></svg>") center/contain no-repeat;
+  }
+
+  /* Range slider */
+  input[type="range"] {
+    -webkit-appearance: none; appearance: none;
+    background: transparent; width: 100%;
+  }
+  input[type="range"]::-webkit-slider-runnable-track {
+    height: 4px; background: #e4e4e7; border-radius: 999px;
+  }
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none; appearance: none;
+    width: 16px; height: 16px; background: #0a0a0a; border: 2.5px solid #fff;
+    border-radius: 999px; margin-top: -6px; cursor: pointer;
+    box-shadow: 0 0 0 1px #0a0a0a, 0 1px 2px rgba(0,0,0,0.1);
+    transition: transform .12s ease;
+  }
+  input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.15); }
+
+  /* Hovers */
+  tr.row:hover td { background: #fafafa; }
+  tr.row td { transition: background .1s ease; }
+
+  /* Subtle pulse */
+  @keyframes pulse {
+    0%,100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+  .pulse-dot { animation: pulse 1.6s ease-in-out infinite; }
+
+  @keyframes pulse-ring {
+    0%   { box-shadow: 0 0 0 0 rgba(37,64,255,0.35); }
+    100% { box-shadow: 0 0 0 8px rgba(37,64,255,0); }
+  }
+  .pulse-ring { animation: pulse-ring 1.5s ease-out infinite; }
+
+  /* Shimmer */
+  @keyframes shimmer {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(100%); }
+  }
+  .shimmer { position: relative; overflow: hidden; }
+  .shimmer::after {
+    content: ""; position: absolute; inset: 0;
+    background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,.5) 50%, transparent 100%);
+    animation: shimmer 1.4s linear infinite;
+  }
+
+  /* Spin */
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .spin { animation: spin 0.8s linear infinite; }
+
+  /* Slide-in pipeline car */
+  @keyframes travel { from { left: 0%; } to { left: 100%; } }
+
+  /* Subtle background grid */
+  .bg-grid {
+    background-image:
+      linear-gradient(to right, rgba(9,9,11,0.025) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(9,9,11,0.025) 1px, transparent 1px);
+    background-size: 24px 24px;
+  }
+
+  /* Sticky shadow */
+  .sticky-shadow {
+    backdrop-filter: blur(8px) saturate(140%);
+    background: rgba(255,255,255,0.85);
+    border-bottom: 1px solid var(--border);
+  }
+
+  /* Tabular nums */
+  .tnum { font-variant-numeric: tabular-nums; }
+
+  /* Selection */
+  ::selection { background: #2540ff; color: #fff; }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-thumb { background: #e4e4e7; border-radius: 999px; border: 2px solid #fff; }
+  ::-webkit-scrollbar-thumb:hover { background: #d4d4d8; }
+
+  /* Focus */
+  button:focus-visible, a:focus-visible, input:focus-visible {
+    outline: none; box-shadow: 0 0 0 2px #fff, 0 0 0 4px #2540ff;
+  }
+
+  /* Hover lift on chips */
+  .lift { transition: all .12s cubic-bezier(.4,0,.2,1); }
+  .lift:hover { transform: translateY(-1px); }
+</style>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+</head>
+<body class="min-h-screen">
+  <div id="root"></div>
+
+<script type="text/babel" data-presets="env,react">
+
+
+const { useState, useEffect, useMemo, useRef } = React;
+const cn = (...c) => c.filter(Boolean).join(" ");
+
+/* ============ ICONS ============ */
+const Icon = ({ size = 16, className = "", stroke = 1.6, children }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24"
+       fill="none" stroke="currentColor" strokeWidth={stroke}
+       strokeLinecap="round" strokeLinejoin="round" className={className}>{children}</svg>
+);
+const I = {
+  Home:    (p)=> <Icon {...p}><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></Icon>,
+  Scan:    (p)=> <Icon {...p}><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M21 7V5a2 2 0 0 0-2-2h-2"/><path d="M3 17v2a2 2 0 0 0 2 2h2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 12h10"/></Icon>,
+  Clock:   (p)=> <Icon {...p}><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></Icon>,
+  Bolt:    (p)=> <Icon {...p}><path d="M13 2L4 14h7l-1 8 9-12h-7l1-8z"/></Icon>,
+  Gear:    (p)=> <Icon {...p}><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1A2 2 0 1 1 4.3 17l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1A2 2 0 1 1 7 4.3l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></Icon>,
+  Search:  (p)=> <Icon {...p}><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></Icon>,
+  Bell:    (p)=> <Icon {...p}><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10 21a2 2 0 0 0 4 0"/></Icon>,
+  Chev:    (p)=> <Icon {...p}><path d="M6 9l6 6 6-6"/></Icon>,
+  Arrow:   (p)=> <Icon {...p}><path d="M5 12h14M13 5l7 7-7 7"/></Icon>,
+  ArrowDR: (p)=> <Icon {...p}><path d="M7 7h10v10"/><path d="M7 17L17 7"/></Icon>,
+  Plus:    (p)=> <Icon {...p}><path d="M12 5v14M5 12h14"/></Icon>,
+  X:       (p)=> <Icon {...p}><path d="M6 6l12 12M6 18L18 6"/></Icon>,
+  Check:   (p)=> <Icon {...p}><path d="M4 12l5 5L20 6"/></Icon>,
+  Refresh: (p)=> <Icon {...p}><path d="M3 12a9 9 0 0 1 15.5-6.3L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-15.5 6.3L3 16"/><path d="M3 21v-5h5"/></Icon>,
+  Down:    (p)=> <Icon {...p}><path d="M21 15v3a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-3"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></Icon>,
+  Star:    ({size=11, filled=false, className=""}) => (
+    <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24"
+         fill={filled ? "currentColor" : "none"} stroke="currentColor" strokeWidth="1.6"
+         strokeLinejoin="round" className={className}>
+      <path d="M12 2l3.1 6.3 6.9 1-5 4.9 1.2 6.9L12 17.8 5.8 21l1.2-6.9L2 9.3l6.9-1z"/>
+    </svg>
+  ),
+  Ext:     (p)=> <Icon {...p}><path d="M14 4h6v6"/><path d="M10 14L21 3"/><path d="M21 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5"/></Icon>,
+  More:    (p)=> <Icon {...p}><circle cx="5" cy="12" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="19" cy="12" r="1.2"/></Icon>,
+  Filter:  (p)=> <Icon {...p}><path d="M3 5h18l-7 9v6l-4-2v-4z"/></Icon>,
+};
+
+/* ============ DATA ============ */
+const CATS = [
+  { id:"beauty",   label:"Beauté",     count: 34 },
+  { id:"grocery",  label:"Épicerie",   count: 31 },
+  { id:"health",   label:"Santé",      count: 28 },
+  { id:"baby",     label:"Bébé",       count: 25 },
+  { id:"pets",     label:"Animalerie", count: 22 },
+  { id:"toys",     label:"Jouets",     count: 14 },
+];
+
+const TVA = 0.20;
+const mk = (brand, price, units, type, unlocks, score, hot=false) => ({
+  brand, price, units, costHT: +(price*units).toFixed(2), type, unlocks, score, hot,
+  asin: "B0" + Math.floor(Math.random()*1e8).toString().padStart(8,"0").toUpperCase(),
+  ean: String(3000000000000 + Math.floor(Math.random()*1e12)),
+  profit: +(Math.random()*30 + 5).toFixed(1),
+});
+const MOCK = [
+  mk("Maybelline NY",  14.90, 1,   "BRAND",    "Beauté",     5, true),
+  mk("L'Oréal Paris",  11.50, 10,  "CATEGORY", "Beauté",     4),
+  mk("Garnier",        7.20,  1,   "BRAND",    "Beauté",     4),
+  mk("Vichy Dercos",   12.30, 1,   "BRAND",    "Santé",      4),
+  mk("Sanex Zero",     4.10,  1,   "BRAND",    "Santé",      3),
+  mk("Nestlé Lindt",   6.80,  10,  "CATEGORY", "Épicerie",   4),
+  mk("Haribo",         3.50,  100, "CATEGORY", "Épicerie",   5),
+  mk("Pampers",        9.99,  1,   "BRAND",    "Bébé",       5, true),
+  mk("Whiskas",        8.90,  10,  "CATEGORY", "Animalerie", 4),
+  mk("Pedigree",       5.40,  10,  "CATEGORY", "Animalerie", 3),
+];
+
+const HISTORY = [
+  { id:"2210", date:"12 mai · 14:32", filters:"Beauté, Épicerie · ≤ 15€", results:24, cost:312.40, status:"done",
+    rows: MOCK.filter(r=>["Beauté","Épicerie"].includes(r.unlocks)), form:{maxPrice:15, cats:["beauty","grocery"]} },
+  { id:"2207", date:"11 mai · 09:18", filters:"Bébé, Animalerie · ≤ 10€", results:11, cost:118.90, status:"done",
+    rows: MOCK.filter(r=>["Bébé","Animalerie"].includes(r.unlocks)), form:{maxPrice:10, cats:["baby","pets"]} },
+  { id:"2199", date:"09 mai · 21:04", filters:"Santé · ≤ 20€",            results:3,  cost:42.00,  status:"empty",
+    rows: MOCK.filter(r=>r.unlocks==="Santé"), form:{maxPrice:20, cats:["health"]} },
+  { id:"2188", date:"06 mai · 11:45", filters:"Toutes · ≤ 25€",            results:42, cost:587.20, status:"done",
+    rows: MOCK, form:{maxPrice:25, cats:["beauty","grocery","health","baby","pets","toys"]} },
+  { id:"2175", date:"03 mai · 16:22", filters:"Jouets · ≤ 12€",            results:7,  cost:84.20,  status:"done",
+    rows: MOCK.slice(0,4), form:{maxPrice:12, cats:["toys"]} },
+  { id:"2160", date:"28 avr · 09:55", filters:"Beauté · ≤ 8€",              results:16, cost:198.30, status:"done",
+    rows: MOCK.filter(r=>r.unlocks==="Beauté"), form:{maxPrice:8, cats:["beauty"]} },
+];
+
+/* ============ PRIMITIVES ============ */
+const Button = ({ variant="primary", size="md", icon, iconRight, children, className="", ...p }) => {
+  const sizes = {
+    sm: "h-8  px-3   text-[12.5px] rounded-md gap-1.5",
+    md: "h-9  px-3.5 text-[13px]   rounded-md gap-1.5",
+    lg: "h-10 px-4   text-[13.5px] rounded-md gap-2",
+  };
+  const variants = {
+    primary:   "bg-zinc-900 text-white hover:bg-zinc-800",
+    accent:    "bg-cobalt-500 text-white hover:bg-cobalt-600 font-medium",
+    secondary: "bg-white text-zinc-900 border border-zinc-200 hover:border-zinc-300 hover:bg-zinc-50 shadow-card",
+    ghost:     "bg-transparent text-zinc-700 hover:bg-zinc-100",
+    danger:    "bg-white text-zinc-700 border border-zinc-200 hover:border-zinc-300 hover:text-zinc-900",
+  };
+  return (
+    <button className={cn("inline-flex items-center justify-center font-medium transition-all duration-100 disabled:opacity-50 disabled:cursor-not-allowed select-none whitespace-nowrap", sizes[size], variants[variant], className)} {...p}>
+      {icon && <span className="-ml-0.5">{icon}</span>}
+      {children}
+      {iconRight && <span className="-mr-0.5">{iconRight}</span>}
+    </button>
+  );
+};
+
+const Badge = ({ tone="neutral", children, className="", dot=false }) => {
+  const tones = {
+    neutral: "bg-zinc-100 text-zinc-700 border-zinc-150",
+    green:   "bg-emerald-50 text-emerald-700 border-emerald-100",
+    blue:    "bg-cobalt-50 text-cobalt-700 border-cobalt-100",
+    amber:   "bg-amber-50 text-amber-700 border-amber-100",
+    dark:    "bg-zinc-900 text-white border-zinc-900",
+  };
+  const dots = {
+    neutral: "bg-zinc-400", green: "bg-emerald-500", blue: "bg-cobalt-500",
+    amber: "bg-amber-500",  dark: "bg-white",
+  };
+  return (
+    <span className={cn("inline-flex items-center gap-1.5 h-5 px-1.5 rounded text-[11px] font-medium border", tones[tone], className)}>
+      {dot && <span className={cn("w-1.5 h-1.5 rounded-full", dots[tone])}/>}
+      {children}
+    </span>
+  );
+};
+
+const Stars = ({ value, size=11 }) => (
+  <span className="inline-flex gap-0.5">
+    {[0,1,2,3,4].map(i => (
+      <I.Star key={i} size={size} filled={i<value}
+        className={i<value ? "text-amber-500" : "text-zinc-200"}/>
+    ))}
+  </span>
+);
+
+const SectionTitle = ({ kicker, title, action }) => (
+  <div className="flex items-baseline justify-between mb-3">
+    <div>
+      {kicker && <div className="mono text-[10px] uppercase tracking-[0.15em] text-zinc-400 mb-1">{kicker}</div>}
+      <h2 className="text-[15px] font-semibold tracking-[-0.01em] text-zinc-900">{title}</h2>
+    </div>
+    {action}
+  </div>
+);
+
+/* ============ SIDEBAR ============ */
+const NavItem = ({ icon, label, active, disabled, badge }) => (
+  <div className="relative group/item">
+    <button disabled={disabled} className={cn(
+      "w-full flex items-center justify-center h-10 rounded-lg transition-colors relative",
+      active && "bg-zinc-900 text-white",
+      !active && !disabled && "text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900",
+      disabled && "text-zinc-300 cursor-not-allowed hover:bg-transparent"
+    )}>
+      {icon}
+      {active && badge && (
+        <span className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-cobalt-500"/>
+      )}
+    </button>
+    {/* Tooltip */}
+    <div className="absolute left-[calc(100%+12px)] top-1/2 -translate-y-1/2 z-40 px-2.5 h-7 rounded-md bg-zinc-900 text-white text-[12px] font-medium flex items-center gap-2 opacity-0 invisible group-hover/item:opacity-100 group-hover/item:visible transition-all duration-100 pointer-events-none whitespace-nowrap shadow-card-md">
+      {label}
+      {disabled && <span className="mono text-[9.5px] uppercase tracking-wider text-zinc-400">soon</span>}
+      {badge && !disabled && <Badge tone="dark" className="!h-[16px] !px-1 !text-[9.5px] !font-semibold !rounded-sm !bg-cobalt-500 !text-white !border-cobalt-500">{badge}</Badge>}
+      <span className="absolute -left-1 top-1/2 -translate-y-1/2 w-2 h-2 bg-zinc-900 rotate-45"/>
+    </div>
+  </div>
+);
+
+const Sidebar = () => (
+  <aside className="hidden md:flex fixed top-0 left-0 h-screen w-14 bg-white border-r border-zinc-200 flex-col z-30">
+    {/* Brand */}
+    <div className="h-14 grid place-items-center border-b border-zinc-200">
+      <button className="w-9 h-9 rounded-md bg-zinc-900 grid place-items-center relative hover:scale-[1.05] transition-transform">
+        <span className="w-3.5 h-3.5 rounded-full border-[1.5px] border-white"/>
+        <span className="absolute w-1.5 h-1.5 rounded-full bg-cobalt-500"/>
+      </button>
+    </div>
+
+    {/* Nav */}
+    <nav className="flex-1 px-2 py-3 space-y-1">
+      <NavItem icon={<I.Home size={17}/>}  label="Accueil"          disabled />
+      <NavItem icon={<I.Scan size={17}/>}  label="Ungating" active badge="LIVE" />
+      <NavItem icon={<I.Clock size={17}/>} label="Historique"       disabled />
+      <NavItem icon={<I.Bolt size={17}/>}  label="Opportunités"     disabled />
+
+      <div className="h-px bg-zinc-200 my-3 mx-2"/>
+
+      <NavItem icon={<I.Gear size={17}/>}  label="Paramètres" disabled />
+      <NavItem icon={<I.Bell size={17}/>}  label="Alertes"    disabled />
+    </nav>
+  </aside>
+);
+
+/* ============ TOPBAR ============ */
+const Topbar = ({ onRun, scanning }) => (
+  <header className="sticky top-0 z-20 sticky-shadow">
+    <div className="h-13 px-4 md:px-7 flex items-center gap-2 md:gap-3 py-2.5">
+      <div className="hidden sm:flex items-center gap-2 text-[13px]">
+        <span className="text-zinc-500">Workspace</span>
+        <I.Chev size={12} className="text-zinc-300 -rotate-90"/>
+        <span className="text-zinc-900 font-medium">Ungating</span>
+      </div>
+      <span className="sm:hidden text-[14px] font-semibold text-zinc-900">OA</span>
+      <Badge tone="green" dot className="mono uppercase tracking-wider !text-[10px] !h-[22px] !px-2 whitespace-nowrap hidden lg:inline-flex">Seller Central · live</Badge>
+      <div className="flex-1"/>
+      <Button variant="ghost" size="sm" icon={<I.Refresh size={13}/>} className="!px-2 sm:!px-3"><span className="hidden sm:inline">Actualiser</span></Button>
+      <Button variant="secondary" size="sm" icon={<I.Down size={13}/>} className="hidden md:inline-flex">Exporter CSV</Button>
+      <Button variant="accent" size="sm"
+        icon={scanning ? <span className="w-3.5 h-3.5 rounded-full border-[1.5px] border-white/30 border-t-white spin"/> : <I.Bolt size={13}/>}
+        onClick={onRun} disabled={scanning}>
+        <span className="hidden sm:inline">{scanning ? "Scan en cours…" : "Lancer la recherche"}</span>
+        <span className="sm:hidden">{scanning ? "…" : "Scanner"}</span>
+      </Button>
+    </div>
+  </header>
+);
+
+/* ============ PAGE HEADING + KPI ============ */
+const PageHero = () => (
+  <section className="px-4 md:px-7 pt-6 md:pt-8 pb-6">
+    <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4 md:gap-6">
+      <div>
+        <div className="mono text-[10.5px] uppercase tracking-[0.18em] text-zinc-500 mb-2"></div>
+        <h1 className="text-[24px] md:text-[28px] font-semibold tracking-[-0.025em] text-zinc-900 leading-none">Ungating</h1>
+        <p className="text-[13.5px] text-zinc-500 mt-2 max-w-xl leading-snug">
+          Croisement Metro ↔ Amazon FR : on identifie les produits dont l'achat lève une restriction de catalogue, automatiquement.
+        </p>
+      </div>
+      <div className="flex items-center gap-2.5 text-[12px] text-zinc-500 mono uppercase tracking-wider">
+        <I.Clock size={13} className="text-zinc-400"/>
+        <span>Dernier scan</span>
+        <span className="text-zinc-900 normal-case tracking-normal">il y a 2h · 24 résultats</span>
+      </div>
+    </div>
+
+    {/* KPI row — dernier scan */}
+    <div className="mt-7">
+      <div className="flex items-baseline justify-between mb-3">
+        <span className="mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">Dernier scan · il y a 2h</span>
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        {/* Opportunités */}
+        <div className="rounded-lg border border-zinc-200 bg-white p-3.5 lift shadow-card">
+          <div className="flex items-center justify-between">
+            <span className="mono text-[10px] uppercase tracking-[0.15em] text-zinc-500">Opportunités</span>
+            <Badge tone="green" dot className="!h-[18px] !text-[10px] mono !font-normal whitespace-nowrap">+12</Badge>
+          </div>
+          <div className="mt-2 flex items-baseline gap-1.5">
+            <div className="text-[24px] font-semibold tracking-[-0.025em] text-zinc-900 tnum">384</div>
+          </div>
+          <div className="mt-0.5 text-[11.5px] text-zinc-500">produits éligibles</div>
+        </div>
+
+        {/* Marques (popover) */}
+        <div className="relative group/marques rounded-lg border border-zinc-200 bg-white p-3.5 lift shadow-card cursor-default">
+          <div className="flex items-center justify-between">
+            <span className="mono text-[10px] uppercase tracking-[0.15em] text-zinc-500">Marques</span>
+            <Badge tone="green" dot className="!h-[18px] !text-[10px] mono !font-normal whitespace-nowrap">+3</Badge>
+          </div>
+          <div className="mt-2 flex items-baseline gap-1.5">
+            <div className="text-[24px] font-semibold tracking-[-0.025em] text-zinc-900 tnum">42</div>
+          </div>
+          <div className="mt-0.5 text-[11.5px] text-zinc-500">marques uniques débloquables</div>
+
+          {/* Popover */}
+          <div className="absolute left-0 right-0 top-[calc(100%+8px)] z-30 rounded-lg border border-zinc-200 bg-white shadow-card-md p-3 opacity-0 invisible group-hover/marques:opacity-100 group-hover/marques:visible transition-all duration-150 pointer-events-none group-hover/marques:pointer-events-auto">
+            <div className="mb-2 mono text-[10px] uppercase tracking-[0.15em] text-zinc-500">Top marques</div>
+            <div className="space-y-0.5">
+              {[
+                ["L'Oréal Paris",  "165.60 €"],
+                ["Maybelline NY",  "160.92 €"],
+                ["Garnier",         "69.12 €"],
+                ["Nestlé Lindt",    "57.12 €"],
+                ["Pampers",         "47.96 €"],
+                ["Whiskas",         "21.36 €"],
+              ].map(([b,p])=>(
+                <div key={b} className="flex items-center gap-3 px-2 h-7 rounded hover:bg-zinc-50">
+                  <span className="text-[12.5px] text-zinc-900 flex-1 truncate">{b}</span>
+                  <span className="mono text-[12px] tnum text-zinc-900 font-medium">{p}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Catégories */}
+        <div className="rounded-lg border border-zinc-200 bg-white p-3.5 lift shadow-card">
+          <div className="flex items-center justify-between">
+            <span className="mono text-[10px] uppercase tracking-[0.15em] text-zinc-500">Catégories</span>
+            <Badge tone="green" dot className="!h-[18px] !text-[10px] mono !font-normal whitespace-nowrap">+1</Badge>
+          </div>
+          <div className="mt-2 flex items-baseline gap-1.5">
+            <div className="text-[24px] font-semibold tracking-[-0.025em] text-zinc-900 tnum">4<span className="text-zinc-400">/6</span></div>
+          </div>
+          <div className="mt-0.5 text-[11.5px] text-zinc-500">débloquables sur sélectionnées</div>
+        </div>
+      </div>
+    </div>
+  </section>
+);
+
+/* ============ FILTERS FORM ============ */
+const PriceSlider = ({ value, onChange }) => {
+  const MIN=1, MAX=15;
+  const pct = (value-MIN)/(MAX-MIN)*100;
+  return (
+    <div className="flex items-center gap-5">
+      <div className="flex-1">
+        <input type="range" min={MIN} max={MAX} step="0.5" value={value}
+          onChange={e=>onChange(parseFloat(e.target.value))}
+          style={{
+            background: `linear-gradient(to right, #0a0a0a 0%, #0a0a0a ${pct}%, #e4e4e7 ${pct}%, #e4e4e7 100%)`,
+            height: '4px', borderRadius: '999px'
+          }}/>
+        <div className="flex justify-between mt-2 mono text-[10px] text-zinc-400 tnum">
+          <span>1€</span><span>5€</span><span>10€</span><span>15€</span>
+        </div>
+      </div>
+      <div className="flex items-baseline gap-1 h-10 px-3 rounded-md border border-zinc-200 bg-white shadow-card min-w-[110px]">
+        <input type="number" min={MIN} max={MAX} step="0.5" value={value}
+          onChange={e=>onChange(Math.min(MAX, Math.max(MIN, parseFloat(e.target.value)||MIN)))}
+          className="w-[60px] bg-transparent text-[20px] font-semibold tracking-[-0.02em] tnum text-right outline-none"/>
+        <span className="text-zinc-400 text-[14px] font-medium">€</span>
+      </div>
+    </div>
+  );
+};
+
+const CatChip = ({ cat, checked, onChange }) => (
+  <label className={cn(
+    "group flex items-center gap-2.5 px-3 h-10 rounded-md cursor-pointer transition-all lift",
+    checked
+      ? "bg-zinc-900 text-white border border-zinc-900"
+      : "bg-white text-zinc-900 border border-zinc-200 hover:border-zinc-300"
+  )}>
+    <input type="checkbox" className={cn("cb shrink-0", checked && "!border-white")} checked={checked} onChange={onChange}/>
+    <span className="text-[13px] font-medium flex-1">{cat.label}</span>
+    <span className={cn("mono text-[10.5px] tnum tracking-wider", checked ? "text-white/60" : "text-zinc-400")}>
+      {String(cat.count).padStart(2,'0')}
+    </span>
+  </label>
+);
+
+const ScannerForm = ({ form, setForm }) => {
+  const toggleCat = (id) => setForm(f => ({...f, cats: f.cats.includes(id) ? f.cats.filter(c=>c!==id) : [...f.cats, id]}));
+  const allCats = form.cats.length === CATS.length;
+  return (
+    <section className="rounded-xl border border-zinc-200 bg-white shadow-card">
+      {/* Header */}
+      <div className="px-5 pt-5 pb-4 border-b border-zinc-200 flex items-start gap-3">
+        <div className="w-9 h-9 rounded-lg bg-zinc-900 grid place-items-center text-white shrink-0">
+          <I.Filter size={15}/>
+        </div>
+        <div className="flex-1">
+          <h2 className="text-[15px] font-semibold tracking-[-0.01em] text-zinc-900">Paramètres du scan</h2>
+          <p className="text-[12.5px] text-zinc-500 mt-0.5">Définis le périmètre. La quantité min. exigée par Amazon est récupérée auto. via SP-API.</p>
+        </div>
+        <Button variant="ghost" size="sm" icon={<I.Refresh size={12}/>}>Réinitialiser</Button>
+      </div>
+
+      <div className="p-5 space-y-7">
+        {/* Price */}
+        <div>
+          <div className="flex items-baseline justify-between mb-3">
+            <label className="text-[12.5px] font-medium text-zinc-900">Prix maximum unitaire</label>
+            <span className="mono text-[11px] uppercase tracking-wider text-zinc-400">1 € → 15 €</span>
+          </div>
+          <PriceSlider value={form.maxPrice} onChange={v=>setForm({...form, maxPrice:v})}/>
+        </div>
+
+        {/* Categories */}
+        <div>
+          <div className="flex items-baseline justify-between mb-3">
+            <label className="text-[12.5px] font-medium text-zinc-900">
+              Catégories à débloquer
+              <button onClick={()=>setForm({...form, cats: allCats ? [] : CATS.map(c=>c.id)})}
+                className="ml-2.5 text-[11.5px] font-normal text-zinc-500 hover:text-zinc-900 underline underline-offset-2">
+                {allCats ? "Tout désélectionner" : "Tout sélectionner"}
+              </button>
+            </label>
+            <span className="mono text-[11px] uppercase tracking-wider text-zinc-400 tnum">{form.cats.length}/{CATS.length} sélectionnées</span>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+            {CATS.map(c => <CatChip key={c.id} cat={c} checked={form.cats.includes(c.id)} onChange={()=>toggleCat(c.id)}/>)}
+          </div>
+        </div>
+      </div>
+
+      {/* Footer */}
+      <div className="px-5 py-3 border-t border-zinc-200 bg-zinc-50/60 rounded-b-xl flex items-center justify-between">
+        <span className="text-[12px] text-zinc-500">
+          <span className="text-zinc-900 font-medium">~38 produits</span> correspondants en stock Metro
+        </span>
+        <span className="mono text-[11px] uppercase tracking-wider text-zinc-400">1 scan = 1 crédit</span>
+      </div>
+    </section>
+  );
+};
+
+/* ============ PIPELINE FLOW ============ */
+const STAGES = [
+  { key:"metro",   label:"Metro",      sub:"scraping",     thr: 18 },
+  { key:"ean",     label:"EAN match",  sub:"asin lookup",  thr: 38 },
+  { key:"amazon",  label:"Amazon",     sub:"catalogue",    thr: 58 },
+  { key:"sp_api",  label:"SP-API",     sub:"restrictions", thr: 78 },
+  { key:"score",   label:"Score",      sub:"priorité",     thr: 92 },
+  { key:"supabase",label:"Supabase",   sub:"save",         thr: 100 },
+];
+
+const PipelineFlow = ({ progress = 0, active = false }) => {
+  const currentIdx = active ? Math.max(0, STAGES.findIndex(s => progress < s.thr)) : -1;
+  return (
+    <div className="relative">
+      {/* Background line */}
+      <div className="absolute left-[20px] right-[20px] top-[22px] h-px bg-zinc-200"/>
+      {/* Progress line */}
+      <div className="absolute left-[20px] top-[22px] h-px bg-cobalt-500 transition-[width] duration-500"
+           style={{width: `calc((100% - 40px) * ${progress/100})`}}/>
+
+      <div className="relative grid" style={{gridTemplateColumns:`repeat(${STAGES.length}, 1fr)`}}>
+        {STAGES.map((s, i) => {
+          const isPast = progress >= s.thr;
+          const isCurrent = active && i === currentIdx;
+          return (
+            <div key={s.key} className="flex flex-col items-center gap-2.5">
+              <div className="relative">
+                <div className={cn(
+                  "w-11 h-11 rounded-full grid place-items-center transition-all duration-300 relative z-10",
+                  isPast      ? "bg-cobalt-500 text-white shadow-[0_0_0_4px_rgba(37,64,255,0.15)]" :
+                  isCurrent   ? "bg-white text-cobalt-500 border-2 border-cobalt-500" :
+                                "bg-white border border-zinc-300 text-zinc-400"
+                )}>
+                  {isCurrent && <span className="absolute inset-0 rounded-full pulse-ring"/>}
+                  {isPast
+                    ? <I.Check size={16} stroke={2.2}/>
+                    : <span className="mono text-[12px] tnum font-semibold">{String(i+1).padStart(2,'0')}</span>}
+                </div>
+              </div>
+              <div className="text-center">
+                <div className={cn(
+                  "text-[12.5px] font-medium transition-colors",
+                  isPast || isCurrent ? "text-zinc-900" : "text-zinc-500"
+                )}>{s.label}</div>
+                <div className="mono text-[9.5px] uppercase tracking-[0.12em] text-zinc-400 mt-0.5">{s.sub}</div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
+
+const PipelineCard = ({ progress, scanning }) => (
+  <section className="rounded-xl border border-zinc-200 bg-white shadow-card">
+    <div className="px-5 py-4 border-b border-zinc-200 flex items-center justify-between">
+      <SectionTitle
+        kicker={scanning ? "Process · en cours" : "Process"}
+        title={scanning ? "Analyse en direct" : "Comment fonctionne le scan"}
+      />
+      {scanning && (
+        <div className="flex items-center gap-3">
+          <span className="text-[13px] tnum mono text-zinc-900 font-medium">{Math.floor(progress)}%</span>
+          <span className="w-1.5 h-1.5 rounded-full bg-cobalt-500 pulse-dot"/>
+        </div>
+      )}
+    </div>
+    <div className="px-10 py-8">
+      <PipelineFlow progress={progress} active={scanning}/>
+    </div>
+    {scanning && (
+      <>
+        <div className="px-5 pb-2">
+          <div className="h-1 rounded-full bg-zinc-100 overflow-hidden shimmer">
+            <div className="h-full bg-cobalt-500 transition-[width] duration-300 rounded-full" style={{width:`${progress}%`}}/>
+          </div>
+        </div>
+        <div className="grid grid-cols-2 sm:grid-cols-4 border-t border-zinc-200">
+          {[
+            ["Produits Metro",    "2 000"],
+            ["EAN matchés",       Math.floor(progress*14).toLocaleString('fr-FR')],
+            ["Restrictions",      Math.floor(progress*0.42).toString()],
+            ["Rentables",         Math.floor(progress*0.18).toString()],
+          ].map(([k,v],i)=>(
+            <div key={k} className={cn("px-5 py-3", i<3 && "border-r border-zinc-200")}>
+              <div className="mono text-[10px] uppercase tracking-[0.12em] text-zinc-500">{k}</div>
+              <div className="text-[20px] font-semibold tracking-[-0.02em] mt-1 tnum text-zinc-900">{v}</div>
+            </div>
+          ))}
+        </div>
+      </>
+    )}
+  </section>
+);
+
+/* ============ RESULTS TABLE ============ */
+const TypeBadge = ({ type }) => (
+  type === "CATEGORY"
+    ? <Badge tone="green" dot className="!text-[10.5px] !font-medium">Catégorie</Badge>
+    : <Badge tone="neutral" dot className="!text-[10.5px] !font-medium">Marque</Badge>
+);
+
+const ResultsTable = ({ rows, openedScan, onCloseScan }) => {
+  const [typeFilter, setTypeFilter] = useState("all");
+  const [sort, setSort] = useState("none"); // none | priceAsc | priceDesc | scoreDesc | costAsc | costDesc
+  const [sortOpen, setSortOpen] = useState(false);
+  const filtered = useMemo(() => {
+    let res = typeFilter==="all" ? rows : rows.filter(r=>r.type===typeFilter);
+    res = [...res];
+    switch(sort) {
+      case "priceAsc":  res.sort((a,b)=>a.price-b.price); break;
+      case "priceDesc": res.sort((a,b)=>b.price-a.price); break;
+      case "scoreDesc": res.sort((a,b)=>b.score-a.score); break;
+      case "costAsc":   res.sort((a,b)=>a.costHT-b.costHT); break;
+      case "costDesc":  res.sort((a,b)=>b.costHT-a.costHT); break;
+    }
+    return res;
+  }, [rows, typeFilter, sort]);
+  const grouped = useMemo(() => {
+    const g = {};
+    for (const r of filtered) (g[r.unlocks] ||= []).push(r);
+    return Object.entries(g).sort((a,b) => b[1].length - a[1].length);
+  }, [filtered]);
+  const totalTTC = filtered.reduce((s,r)=>s + r.costHT*(1+TVA), 0);
+
+  return (
+    <section id="results-section" className={cn("rounded-xl border bg-white shadow-card overflow-hidden transition-all", openedScan ? "border-cobalt-500 ring-4 ring-cobalt-500/15" : "border-zinc-200")}>
+      {/* Snapshot banner */}
+      {openedScan && (
+        <div className="px-5 py-2.5 bg-cobalt-50 border-b border-cobalt-100 flex flex-wrap items-center gap-x-3 gap-y-1.5">
+          <span className="w-1.5 h-1.5 rounded-full bg-cobalt-500"/>
+          <span className="text-[12.5px] text-cobalt-700">
+            <span className="font-medium">Snapshot du scan <span className="mono">#{openedScan.id}</span></span>
+            <span className="text-cobalt-700/70"> · {openedScan.date} · {openedScan.filters}</span>
+          </span>
+          <div className="flex-1"/>
+          <button onClick={onCloseScan} className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-md text-[12px] font-medium text-cobalt-700 hover:bg-cobalt-100 transition-colors">
+            <I.X size={12}/>
+            Revenir au scan en cours
+          </button>
+        </div>
+      )}
+      <header className="px-5 py-4 border-b border-zinc-200 flex items-center gap-3">
+        <div>
+          <h2 className="text-[15px] font-semibold tracking-[-0.01em] text-zinc-900">
+            {openedScan ? <>Scan archivé <span className="mono text-cobalt-500">#{openedScan.id}</span></> : "Résultats du scan"}
+          </h2>
+          <div className="text-[12px] text-zinc-500 mt-0.5">
+            <span className="tnum mono">{filtered.length}</span> produits ·
+            <span className="text-zinc-900 font-medium tnum mono"> {totalTTC.toFixed(2)} €</span> coût total TTC
+          </div>
+        </div>
+        <div className="flex-1"/>
+        <div className="flex items-center bg-zinc-100 rounded-md p-0.5">
+          {[
+            {v:"all", l:"Tous"},
+            {v:"CATEGORY", l:"Catégorie"},
+            {v:"BRAND", l:"Marque"},
+          ].map(t=>(
+            <button key={t.v} onClick={()=>setTypeFilter(t.v)} className={cn(
+              "h-7 px-2.5 text-[12px] font-medium rounded transition-all",
+              typeFilter===t.v ? "bg-white shadow-card text-zinc-900" : "text-zinc-500 hover:text-zinc-900"
+            )}>{t.l}</button>
+          ))}
+        </div>
+        {/* Sort — click to open */}
+        <div className="relative">
+          <Button variant={sort!=="none" ? "primary" : "secondary"} size="sm"
+            icon={<I.Filter size={12}/>}
+            iconRight={<I.Chev size={11} className={cn("transition-transform", sortOpen && "rotate-180")}/>}
+            onClick={()=>setSortOpen(o=>!o)}>
+            {{
+              none:      "Trier",
+              priceAsc:  "Prix ↑",
+              priceDesc: "Prix ↓",
+              scoreDesc: "Score ↓",
+              costAsc:   "Coût ↑",
+              costDesc:  "Coût ↓",
+            }[sort]}
+          </Button>
+          {sortOpen && (
+            <>
+              <button className="fixed inset-0 z-20 cursor-default" onClick={()=>setSortOpen(false)}/>
+              <div className="absolute right-0 top-[calc(100%+4px)] z-30 w-52 rounded-lg border border-zinc-200 bg-white shadow-card-md p-1">
+                {[
+                  {v:"none",      l:"Par défaut"},
+                  {v:"priceAsc",  l:"Prix croissant"},
+                  {v:"priceDesc", l:"Prix décroissant"},
+                  {v:"costAsc",   l:"Coût total croissant"},
+                  {v:"costDesc",  l:"Coût total décroissant"},
+                  {v:"scoreDesc", l:"Score le plus haut"},
+                ].map(o=>(
+                  <button key={o.v} onClick={()=>{setSort(o.v); setSortOpen(false);}} className={cn(
+                    "w-full flex items-center justify-between gap-2 h-8 px-2.5 rounded-md text-[12.5px] text-left transition-colors",
+                    sort===o.v ? "bg-zinc-100 text-zinc-900 font-medium" : "text-zinc-700 hover:bg-zinc-50"
+                  )}>
+                    <span>{o.l}</span>
+                    {sort===o.v && <I.Check size={12} className="text-cobalt-500"/>}
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+      </header>
+
+      <div className="overflow-x-auto">
+        <table className="w-full">
+          <thead className="bg-zinc-50/70 border-b border-zinc-200">
+            <tr>
+              <th className="w-10 pl-5 pr-2 py-2.5"><input type="checkbox" className="cb"/></th>
+              <th className="px-3 py-2.5 text-left mono text-[10px] uppercase tracking-[0.15em] text-zinc-500 font-medium">Marque / ASIN</th>
+              <th className="w-[70px] px-2 py-2.5 text-right mono text-[10px] uppercase tracking-[0.15em] text-zinc-500 font-medium whitespace-nowrap">Prix u.</th>
+              <th className="w-[70px] px-2 py-2.5 text-right mono text-[10px] uppercase tracking-[0.15em] text-zinc-500 font-medium whitespace-nowrap">Qté</th>
+              <th className="w-[140px] px-2 py-2.5 text-right mono text-[10px] uppercase tracking-[0.15em] text-zinc-500 font-medium whitespace-nowrap">Coût total</th>
+              <th className="w-[90px] px-2 py-2.5 text-left mono text-[10px] uppercase tracking-[0.15em] text-zinc-500 font-medium hidden xl:table-cell">Type</th>
+              <th className="w-[80px] px-2 py-2.5 text-left mono text-[10px] uppercase tracking-[0.15em] text-zinc-500 font-medium">Score</th>
+              <th className="w-[60px] lg:w-[120px] px-2 py-2.5 pr-5"/>
+            </tr>
+          </thead>
+          <tbody>
+            {grouped.map(([cat, items]) => (
+              <React.Fragment key={cat}>
+                <tr className="bg-zinc-50 border-y border-zinc-200">
+                  <td colSpan={7} className="px-5 py-2 xl:hidden">
+                    <div className="flex items-baseline gap-3">
+                      <span className="text-[13.5px] font-semibold tracking-[-0.01em] text-zinc-900">{cat}</span>
+                      <Badge tone="neutral" className="!h-[18px] !text-[10.5px] tnum mono">{items.length}</Badge>
+                      <span className="mono text-[10.5px] uppercase tracking-wider text-zinc-400">
+                        {items.filter(r=>r.type==="CATEGORY").length} cat · {items.filter(r=>r.type==="BRAND").length} brand
+                      </span>
+                      <div className="flex-1"/>
+                      <span className="mono text-[10.5px] uppercase tracking-wider text-zinc-400">
+                        Moy. <span className="text-zinc-900 tnum">{(items.reduce((s,r)=>s+r.costHT*(1+TVA),0)/items.length).toFixed(2)} €</span>
+                      </span>
+                    </div>
+                  </td>
+                  <td colSpan={8} className="px-5 py-2 hidden xl:table-cell">
+                    <div className="flex items-baseline gap-3">
+                      <span className="text-[13.5px] font-semibold tracking-[-0.01em] text-zinc-900">{cat}</span>
+                      <Badge tone="neutral" className="!h-[18px] !text-[10.5px] tnum mono">{items.length}</Badge>
+                      <span className="mono text-[10.5px] uppercase tracking-wider text-zinc-400">
+                        {items.filter(r=>r.type==="CATEGORY").length} cat · {items.filter(r=>r.type==="BRAND").length} brand
+                      </span>
+                      <div className="flex-1"/>
+                      <span className="mono text-[10.5px] uppercase tracking-wider text-zinc-400">
+                        Moy. <span className="text-zinc-900 tnum">{(items.reduce((s,r)=>s+r.costHT*(1+TVA),0)/items.length).toFixed(2)} €</span>
+                      </span>
+                    </div>
+                  </td>
+                </tr>
+                {items.map((r,i)=>(
+                  <tr key={cat+i} className="row border-b border-zinc-150 last:border-b-0">
+                    <td className="pl-5 pr-2 py-3 align-middle"><input type="checkbox" className="cb"/></td>
+                    <td className="px-3 py-3 align-middle">
+                      <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 shrink-0 rounded-md bg-zinc-100 border border-zinc-200 grid place-items-center text-[10.5px] font-semibold text-zinc-700">
+                          {r.brand.split(" ").map(w=>w[0]).slice(0,2).join("")}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-[13.5px] font-medium text-zinc-900 truncate">{r.brand}</span>
+                            {r.hot && <Badge tone="amber" dot className="!h-[16px] !text-[9.5px] !font-semibold uppercase tracking-wider shrink-0">Hot</Badge>}
+                          </div>
+                          <div className="mono text-[10.5px] tnum text-zinc-400 tracking-wider truncate mt-0.5">
+                            {r.asin}
+                          </div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-2 py-3 text-right text-[13px] tnum text-zinc-900 whitespace-nowrap align-middle">{r.price.toFixed(2)} €</td>
+                    <td className="px-2 py-3 text-right whitespace-nowrap align-middle">
+                      <div className="text-[13px] tnum text-zinc-900 font-medium">×{r.units}</div>
+                      <div className="mono text-[9.5px] uppercase tracking-wider text-cobalt-500">auto</div>
+                    </td>
+                    <td className="px-2 py-3 text-right whitespace-nowrap align-middle">
+                      <div className="text-[13.5px] tnum font-semibold text-zinc-900">{(r.costHT*(1+TVA)).toFixed(2)} €</div>
+                      <div className="mono text-[10px] tnum text-zinc-400">
+                        {r.costHT.toFixed(2)} HT · +{(r.costHT*TVA).toFixed(2)} TVA
+                      </div>
+                    </td>
+                    <td className="px-2 py-3 align-middle hidden xl:table-cell"><TypeBadge type={r.type}/></td>
+                    <td className="px-2 py-3 align-middle"><Stars value={r.score}/></td>
+                    <td className="px-2 py-3 pr-5 align-middle">
+                      <div className="flex items-center justify-end">
+                        <a
+                          href={`https://www.metro.fr/marketplace/product/${encodeURIComponent(r.brand.toLowerCase().replace(/[^a-z0-9]+/g,'-'))}-${r.ean}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          title={`Acheter sur Metro · EAN ${r.ean}`}
+                          className="inline-flex items-center justify-center gap-1.5 h-8 px-3 text-[12.5px] rounded-md font-medium bg-white text-zinc-900 border border-zinc-200 hover:border-zinc-300 hover:bg-zinc-50 shadow-card transition-all"
+                        >
+                          <span className="hidden lg:inline">Acheter</span>
+                          <span className="mono text-[10px] uppercase tracking-wider text-zinc-400 hidden xl:inline">Metro</span>
+                          <I.ArrowDR size={12}/>
+                        </a>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </React.Fragment>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <footer className="px-5 py-3 border-t border-zinc-200 bg-zinc-50/40 flex items-center justify-between gap-4 flex-wrap">
+        <div className="flex items-center gap-5 mono text-[11px] uppercase tracking-wider">
+          <div className="flex items-baseline gap-1.5">
+            <span className="text-zinc-500">HT</span>
+            <span className="text-zinc-900 tnum text-[12.5px] normal-case">{(totalTTC/(1+TVA)).toFixed(2)} €</span>
+          </div>
+          <div className="flex items-baseline gap-1.5">
+            <span className="text-zinc-500">TVA</span>
+            <span className="text-zinc-900 tnum text-[12.5px] normal-case">{(totalTTC - totalTTC/(1+TVA)).toFixed(2)} €</span>
+          </div>
+          <div className="flex items-baseline gap-1.5 pl-4 border-l border-zinc-200">
+            <span className="text-zinc-900 font-semibold">TTC</span>
+            <span className="text-zinc-900 tnum text-[14px] font-semibold normal-case tracking-normal">{totalTTC.toFixed(2)} €</span>
+          </div>
+        </div>
+        <span className="mono text-[10.5px] uppercase tracking-wider text-zinc-400 tnum">
+          {filtered.length} {filtered.length>1?"résultats":"résultat"}
+        </span>
+      </footer>
+    </section>
+  );
+};
+
+/* ============ HISTORY ============ */
+const HistoryTable = ({ history, onOpen }) => {
+  const [expanded, setExpanded] = useState(false);
+  const visible = expanded ? history : history.slice(0,4);
+  return (
+  <section id="history-section" className="rounded-xl border border-zinc-200 bg-white shadow-card overflow-hidden">
+    <header className="px-5 py-4 border-b border-zinc-200 flex items-center justify-between">
+      <SectionTitle kicker="Archives" title="Historique des scans"/>
+      <Button variant="ghost" size="sm" iconRight={<I.Chev size={12} className={cn("transition-transform", expanded && "rotate-180")}/>}
+        onClick={()=>setExpanded(e=>!e)}>
+        {expanded ? "Réduire" : `Tout voir (${history.length})`}
+      </Button>
+    </header>
+    <table className="w-full">
+      <thead className="bg-zinc-50/70 border-b border-zinc-200">
+        <tr>
+          {["#","Date","Filtres","Résultats","Coût total","Statut",""].map((c,i)=>(
+            <th key={i} className={cn(
+              "py-2.5 mono text-[10px] uppercase tracking-[0.15em] text-zinc-500 font-medium",
+              i===0 && "pl-5",
+              (i===3||i===4) ? "text-right pr-3" : "px-3 text-left",
+              i===6 && "pr-5"
+            )}>{c}</th>
+          ))}
+        </tr>
+      </thead>
+      <tbody>
+        {visible.map((h,i)=>(
+          <tr key={h.id} className={cn("row border-b border-zinc-150 last:border-b-0 cursor-pointer", i===0 && h.fresh && "bg-cobalt-50/40")}
+              onClick={()=>onOpen(h)}>
+            <td className="pl-5 pr-3 py-3 mono text-[12px] tnum text-zinc-900">
+              <span className="inline-flex items-center gap-1.5">
+                #{h.id}
+                {i===0 && h.fresh && <span className="w-1.5 h-1.5 rounded-full bg-cobalt-500 pulse-dot"/>}
+              </span>
+            </td>
+            <td className="px-3 py-3 text-[13px] text-zinc-700">{h.date}</td>
+            <td className="px-3 py-3 text-[13px] text-zinc-900">{h.filters}</td>
+            <td className="px-3 py-3 text-right mono text-[13px] tnum text-zinc-900 font-medium">{h.results}</td>
+            <td className="px-3 py-3 text-right mono text-[13px] tnum text-zinc-700">{h.cost.toFixed(2)} €</td>
+            <td className="px-3 py-3">
+              {h.status==="done"
+                ? <Badge tone="green" dot>Terminé</Badge>
+                : <Badge tone="neutral" dot>Vide</Badge>}
+            </td>
+            <td className="px-3 py-3 pr-5 text-right">
+              <Button size="sm" variant="ghost" iconRight={<I.Arrow size={12}/>} onClick={(e)=>{e.stopPropagation(); onOpen(h);}}>Ouvrir</Button>
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  </section>
+  );
+};
+
+/* ============ PAGE ============ */
+function App() {
+  const [form, setForm] = useState({ maxPrice: 12, cats:["beauty","grocery","health","baby"] });
+  const [scanning, setScanning] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [results, setResults] = useState(MOCK);
+  const [history, setHistory] = useState(HISTORY);
+  const [openedScan, setOpenedScan] = useState(null);
+  const ref = useRef(null);
+
+  const openScan = (h) => {
+    setResults(h.rows || []);
+    if (h.form) setForm(h.form);
+    setOpenedScan({id: h.id, date: h.date, filters: h.filters});
+    setTimeout(() => {
+      const el = document.getElementById("results-section");
+      if (el) window.scrollTo({ top: el.offsetTop - 70, behavior: "smooth" });
+    }, 50);
+  };
+  const closeScan = () => {
+    setResults(MOCK);
+    setOpenedScan(null);
+  };
+
+  const start = () => {
+    setScanning(true); setProgress(0);
+    let p = 0;
+    ref.current = setInterval(() => {
+      p += Math.random()*5 + 2;
+      if (p >= 100) {
+        p = 100;
+        clearInterval(ref.current);
+        setTimeout(() => {
+          setScanning(false);
+          const newResults = [...MOCK].sort(()=>Math.random()-0.5);
+          setResults(newResults);
+          // Append to history
+          const totalCost = newResults.reduce((s,r)=>s + r.costHT*(1+TVA), 0);
+          const catLabels = form.cats.map(id => CATS.find(c=>c.id===id)?.label).filter(Boolean);
+          const filtersStr = `${catLabels.slice(0,2).join(", ")}${catLabels.length>2?` +${catLabels.length-2}`:""} · ≤ ${form.maxPrice}€`;
+          const now = new Date();
+          const dd = String(now.getDate()).padStart(2,"0");
+          const months = ["jan","fév","mar","avr","mai","juin","juil","aoû","sep","oct","nov","déc"];
+          const dateStr = `${dd} ${months[now.getMonth()]} · ${String(now.getHours()).padStart(2,"0")}:${String(now.getMinutes()).padStart(2,"0")}`;
+          const nextId = String(parseInt(history[0].id)+1);
+          setHistory(h => [{
+            id: nextId, date: dateStr, filters: filtersStr,
+            results: newResults.length, cost: totalCost,
+            status: newResults.length>0 ? "done" : "empty",
+            fresh: true,
+          }, ...h.map(x=>({...x, fresh:false}))].slice(0,6));
+        }, 600);
+      }
+      setProgress(p);
+    }, 220);
+  };
+  useEffect(()=> () => ref.current && clearInterval(ref.current), []);
+
+  return (
+    <div className="flex md:pl-14" data-screen-label="Ungating">
+      <Sidebar/>
+      <main className="flex-1 min-w-0">
+        <Topbar onRun={start} scanning={scanning}/>
+        <PageHero/>
+        <div className="px-4 md:px-7 pb-10 space-y-6">
+          <ScannerForm form={form} setForm={setForm}/>
+          <PipelineCard progress={progress} scanning={scanning}/>
+          <ResultsTable rows={results} openedScan={openedScan} onCloseScan={closeScan}/>
+          <HistoryTable history={history} onOpen={openScan}/>
+        </div>
+
+        <footer className="border-t border-zinc-200 px-4 md:px-7 py-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 text-[11.5px] text-zinc-500">
+          <span>© 2026 OA · Open Arbitrage</span>
+          <span className="mono uppercase tracking-wider">v2.4.1 · build a9f1c</span>
+        </footer>
+      </main>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+
+
+</script>
+</body>
+</html>
