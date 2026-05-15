@@ -8,6 +8,14 @@
   # Ignorer le backend
   ignore = "/api/*"
 
+# Ne pas installer les dépendances npm (backend uniquement)
+[build.environment]
+  NPM_FLAGS = "--ignore-scripts"
+
+[functions]
+  # Pas de functions serverless
+  directory = "netlify-disabled"
+
 # Redirections pour SPA
 [[redirects]]
   from = "/*"
