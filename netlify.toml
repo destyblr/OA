@@ -1,0 +1,15 @@
+[build]
+  # Pas de build command (frontend = HTML statique)
+  command = "echo 'No build needed'"
+
+  # Publier le frontend uniquement
+  publish = "."
+
+  # Ignorer le backend
+  ignore = "/api/*"
+
+# Redirections pour SPA
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
