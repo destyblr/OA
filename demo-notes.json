@@ -1,0 +1,61 @@
+{
+  "totalSteps": 8,
+  "totalActions": 9,
+  "recordedAt": "2026-05-15T18:30:38.932Z",
+  "actions": [
+    {
+      "step": 1,
+      "timestamp": "2026-05-15T18:29:29.749Z",
+      "type": "start",
+      "message": "Chrome lancé, prêt pour la démo"
+    },
+    {
+      "step": 1,
+      "timestamp": "2026-05-15T18:29:38.051Z",
+      "type": "navigation",
+      "url": "https://www.google.com/search?q=fnac+pro&oq=fnac+pro&gs_lcrp=EgZjaHJvbWUyCQgAEEUYORiABDIHCAEQABiABDIHCAIQABiABDIHCAMQABiABDIHCAQQABiABDIHCAUQABiABDIHCAYQABiABDIKCAcQABjJAxiABDINCAgQABiSAxiABBiKBTINCAkQABiSAxiABBiKBagCALACAA&sourceid=chrome&ie=UTF-8&sei=EmYHao_mA8GrkdUPxuLswAU"
+    },
+    {
+      "step": 2,
+      "timestamp": "2026-05-15T18:29:41.694Z",
+      "type": "navigation",
+      "url": "https://www.google.com/search?q=fnac+pro&oq=fnac+pro&gs_lcrp=EgZjaHJvbWUyCQgAEEUYORiABDIHCAEQABiABDIHCAIQABiABDIHCAMQABiABDIHCAQQABiABDIHCAUQABiABDIHCAYQABiABDIKCAcQABjJAxiABDINCAgQABiSAxiABBiKBTINCAkQABiSAxiABBiKBagCALACAA&sourceid=chrome&ie=UTF-8&sei=EmYHao_mA8GrkdUPxuLswAU"
+    },
+    {
+      "step": 3,
+      "timestamp": "2026-05-15T18:29:43.368Z",
+      "type": "navigation",
+      "url": "https://www.fnacpro.com/"
+    },
+    {
+      "step": 4,
+      "timestamp": "2026-05-15T18:29:51.717Z",
+      "type": "navigation",
+      "url": "https://www.fnacpro.com/SearchResult/ResultList.aspx?Search=jouet&sft=1&sa=0"
+    },
+    {
+      "step": 5,
+      "timestamp": "2026-05-15T18:29:59.370Z",
+      "type": "navigation",
+      "url": "https://www.fnacpro.com/SearchResult/ResultList.aspx?Search=jouet&sft=1&sa=0"
+    },
+    {
+      "step": 6,
+      "timestamp": "2026-05-15T18:29:59.749Z",
+      "type": "navigation",
+      "url": "https://www.fnacpro.com/SearchResult/ResultList.aspx?Search=jouet&sft=1&sa=0"
+    },
+    {
+      "step": 7,
+      "timestamp": "2026-05-15T18:30:08.091Z",
+      "type": "navigation",
+      "url": "https://www.fnacpro.com/SearchResult/ResultList.aspx?SDM=list&Search=jouet&SFilt=1!11&sft=1"
+    },
+    {
+      "step": 8,
+      "timestamp": "2026-05-15T18:30:13.988Z",
+      "type": "navigation",
+      "url": "https://www.fnacpro.com/SearchResult/ResultList.aspx?SDM=list&Search=jouet&SFilt=1!11%2c2!11&sft=1"
+    }
+  ]
+}
