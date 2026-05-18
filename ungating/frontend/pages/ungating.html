@@ -710,11 +710,16 @@ const ResultsTable = ({ rows, openedScan, onCloseScan }) => {
       const updated = [...prev];
       const row = updated[index];
       const units = Math.max(1, parseInt(newUnits) || 1);
-      const bonus = row.type === 'CATEGORY' ? 1.5 : 1.0;
       const costTTC = row.price * units; // Prix FNAC est TTC
       const costHT = costTTC / (1 + TVA);
-      const rawScore = bonus / costTTC;
-      const score = Math.min(5, Math.max(1, Math.ceil(rawScore * 1000)));
+
+      // Nouveau calcul du score (1-5 étoiles)
+      const typeScore = row.type === 'CATEGORY' ? 2 : 1;
+      const costScore = Math.max(0, 2 - (costTTC / 50));
+      const efficiencyBonus = (row.type === 'CATEGORY' ? 1.5 : 1.0) / (costTTC / 20);
+      const efficiencyScore = Math.min(1, efficiencyBonus);
+      const rawScore = typeScore + costScore + efficiencyScore;
+      const score = Math.round(Math.max(1, Math.min(5, rawScore)) * 2) / 2;
 
       updated[index] = {
         ...row,
@@ -1032,6 +1037,7 @@ function App() {
   const loadResultsFromSupabase = async () => {
     setLoading(true);
     try {
+      // 1. Charger les opportunities
       const { data, error } = await supabase
         .from('opportunities')
         .select(`
@@ -1044,22 +1050,64 @@ function App() {
 
       if (error) throw error;
 
-      // Transformer les données Supabase en format dashboard
-      const formattedResults = data.map(opp => ({
-        brand: opp.products.brand,
-        title: opp.products.title,
-        price: opp.products.price,
-        ean: opp.products.ean,
-        asin: opp.restrictions.asin, // ASIN est dans restrictions, pas products
-        url: opp.products.url,
-        units: opp.restrictions.units_required || 1,
-        type: opp.restrictions.type,
-        unlocks: opp.restrictions.approval_text,
-        costHT: opp.cost_ht,
-        costTTC: opp.cost_ttc,
-        score: opp.score,
-        hot: opp.score >= 4
-      }));
+      // 2. Charger les brand_requirements
+      const { data: brandReqs, error: brandError } = await supabase
+        .from('brand_requirements')
+        .select('*');
+
+      if (brandError) console.warn('brand_requirements non disponible:', brandError);
+
+      // Créer un map pour recherche rapide
+      const brandRequirementsMap = {};
+      if (brandReqs) {
+        brandReqs.forEach(br => {
+          brandRequirementsMap[br.brand_name.toUpperCase()] = br.units_required;
+        });
+      }
+
+      // 3. Transformer et recalculer avec brand_requirements
+      const formattedResults = data.map(opp => {
+        const brandName = opp.restrictions.approval_text?.toUpperCase() || '';
+        const manualUnits = brandRequirementsMap[brandName];
+        const units = manualUnits || opp.restrictions.units_required || 1;
+
+        // Recalculer les coûts avec les bonnes unités
+        const costTTC = opp.products.price * units;
+        const costHT = costTTC / 1.20;
+
+        // Nouveau calcul du score (1-5 étoiles)
+        const type = opp.restrictions.type;
+
+        // Base selon type (1-2 étoiles)
+        const typeScore = type === 'CATEGORY' ? 2 : 1;
+
+        // Coût (0-2 étoiles) - inversement proportionnel
+        const costScore = Math.max(0, 2 - (costTTC / 50));
+
+        // Efficacité (0-1 étoile)
+        const efficiencyBonus = (type === 'CATEGORY' ? 1.5 : 1.0) / (costTTC / 20);
+        const efficiencyScore = Math.min(1, efficiencyBonus);
+
+        // Total (1-5 étoiles, arrondi à 0.5)
+        const rawScore = typeScore + costScore + efficiencyScore;
+        const score = Math.round(Math.max(1, Math.min(5, rawScore)) * 2) / 2;
+
+        return {
+          brand: opp.products.brand,
+          title: opp.products.title,
+          price: opp.products.price,
+          ean: opp.products.ean,
+          asin: opp.restrictions.asin,
+          url: opp.products.url,
+          units: units,
+          type: type,
+          unlocks: opp.restrictions.approval_text,
+          costHT: costHT,
+          costTTC: costTTC,
+          score: score,
+          hot: score >= 4
+        };
+      });
 
       setResults(formattedResults);
     } catch (error) {
