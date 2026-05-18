@@ -23,8 +23,8 @@ module.exports = {
 
   home: {
     label: "Maison",
-    type: "search",
-    keyword: "maison",
-    // URL construite dynamiquement: https://www.fnacpro.com/SearchResult/ResultList.aspx?SDM=list&Search=maison&sft=1
+    type: "url",
+    url: "https://www.fnacpro.com/SearchResult/ResultList.aspx?SCat=23!1&SDM=list&Search=maison&sft=1",
+    // URL avec sous-catégorie SCat=23!1
   }
 };
