@@ -1050,7 +1050,7 @@ function App() {
         title: opp.products.title,
         price: opp.products.price,
         ean: opp.products.ean,
-        asin: opp.products.asin,
+        asin: opp.restrictions.asin, // ASIN est dans restrictions, pas products
         url: opp.products.url,
         units: opp.restrictions.units_required || 1,
         type: opp.restrictions.type,
