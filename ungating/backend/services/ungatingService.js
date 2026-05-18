@@ -1,5 +1,5 @@
 const supabase = require('../config/supabase');
-const scraper = require('./scraper-hybrid');
+const scraper = require('./scraper-hybrid-v2');
 
 class UngatingService {
   constructor() {
