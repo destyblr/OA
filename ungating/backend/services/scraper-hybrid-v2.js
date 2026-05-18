@@ -333,30 +333,24 @@ class ScraperHybridV2 {
         const priceEl = document.querySelector('.f-faPriceBox__price.userPrice, .f-faPriceBox__price');
         const titleEl = document.querySelector('h1.f-productHeader__heading, h1');
 
-        // EAN: chercher dans les propriétés produit
+        // EAN et Marque: chercher dans les propriétés produit
         let ean = null;
-        const dtElements = document.querySelectorAll('dt.f-productProperties__term');
-        for (const dt of dtElements) {
-          if (dt.innerText.trim() === 'EAN') {
-            const dd = dt.nextElementSibling;
-            if (dd) {
-              const text = dd.innerText.trim().replace(/\s/g, ''); // Enlever tous les espaces
-              // Vérifier que c'est bien un EAN (13 chiffres)
-              if (/^\d{13}$/.test(text)) {
-                ean = text;
-                break;
-              }
-            }
-          }
-        }
-
-        // Marque: chercher "Editeur" dans les caractéristiques
         let brand = null;
         const dtElements = document.querySelectorAll('dt.f-productProperties__term');
         for (const dt of dtElements) {
-          if (dt.innerText.trim() === 'Editeur') {
-            const dd = dt.nextElementSibling;
-            if (dd) brand = dd.innerText.trim();
+          const term = dt.innerText.trim();
+          const dd = dt.nextElementSibling;
+
+          if (term === 'EAN' && dd) {
+            const text = dd.innerText.trim().replace(/\s/g, ''); // Enlever tous les espaces
+            // Vérifier que c'est bien un EAN (13 chiffres)
+            if (/^\d{13}$/.test(text)) {
+              ean = text;
+            }
+          }
+
+          if (term === 'Editeur' && dd) {
+            brand = dd.innerText.trim();
           }
         }
 
