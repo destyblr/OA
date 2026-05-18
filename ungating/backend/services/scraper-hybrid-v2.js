@@ -89,61 +89,26 @@ class ScraperHybridV2 {
 
     console.log(`\n✅ PHASE 1 TERMINÉE: ${allProducts.length} produits totaux\n`);
 
-    // ============================================
-    // PHASE 2: TROUVER ASIN SUR AMAZON
-    // ============================================
-    console.log('\n🔍 PHASE 2: RECHERCHE ASIN SUR AMAZON\n');
-
-    for (let i = 0; i < allProducts.length; i++) {
-      const product = allProducts[i];
-      console.log(`[${i+1}/${allProducts.length}] ${product.brand} - ${product.title.substring(0, 40)}...`);
-
-      try {
-        const asin = await this.findAsinOnAmazon(product.ean);
-
-        if (asin) {
-          product.asin = asin;
-          // Mettre à jour en DB
-          await supabase
-            .from('products')
-            .update({ asin })
-            .eq('id', product.id);
-          console.log(`   ✓ ASIN trouvé: ${asin}`);
-        } else {
-          console.log(`   ⚠️ ASIN non trouvé`);
-        }
-      } catch (err) {
-        console.error(`   ❌ Erreur: ${err.message}`);
-      }
-
-      progressCallback({
-        phase: 'amazon',
-        current: i + 1,
-        total: allProducts.length
-      });
-    }
-
-    console.log(`\n✅ PHASE 2 TERMINÉE\n`);
-
     // Fermer Puppeteer avant Playwright
     await this.puppeteerBrowser.close();
     this.puppeteerBrowser = null;
 
     // ============================================
-    // PHASE 3: VÉRIFIER SELLER CENTRAL
+    // PHASE 2: VÉRIFIER SELLER CENTRAL (avec EAN direct)
     // ============================================
-    console.log('\n🎯 PHASE 3: VÉRIFICATION SELLER CENTRAL\n');
+    console.log('\n🎯 PHASE 2: VÉRIFICATION SELLER CENTRAL\n');
     await this.initPlaywright();
 
-    const productsWithAsin = allProducts.filter(p => p.asin);
-    console.log(`${productsWithAsin.length} produits avec ASIN à vérifier\n`);
+    // Charger l'ancien scraper qui a la bonne fonction checkSellerCentralWithPlaywright
+    const oldScraper = require('./scraper-hybrid');
 
-    for (let i = 0; i < productsWithAsin.length; i++) {
-      const product = productsWithAsin[i];
-      console.log(`[${i+1}/${productsWithAsin.length}] ASIN ${product.asin}`);
+    for (let i = 0; i < allProducts.length; i++) {
+      const product = allProducts[i];
+      console.log(`[${i+1}/${allProducts.length}] EAN ${product.ean}`);
 
       try {
-        const restriction = await this.checkSellerCentral(product.asin);
+        // Utiliser la fonction de l'ancien scraper qui marche
+        const restriction = await oldScraper.checkSellerCentralWithPlaywright(product.ean);
 
         if (restriction) {
           await this.saveRestriction(restriction);
@@ -162,11 +127,11 @@ class ScraperHybridV2 {
       progressCallback({
         phase: 'seller_central',
         current: i + 1,
-        total: productsWithAsin.length
+        total: allProducts.length
       });
     }
 
-    console.log(`\n✅ PHASE 3 TERMINÉE\n`);
+    console.log(`\n✅ PHASE 2 TERMINÉE\n`);
 
     await this.close();
     return allProducts.length;
