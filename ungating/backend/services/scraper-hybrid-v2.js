@@ -273,7 +273,13 @@ class ScraperHybridV2 {
   async applyPriceFilters(page, maxPrice) {
     try {
       console.log(`   💶 Application des 2 filtres obligatoires...`);
-      await page.waitForTimeout(2000);
+      await page.waitForTimeout(5000); // Augmenté à 5 secondes
+
+      // DEBUG: Voir tous les labels disponibles
+      const allLabels = await page.evaluate(() => {
+        return Array.from(document.querySelectorAll('label')).map(l => l.innerText.trim());
+      });
+      console.log(`   🔍 DEBUG - Labels trouvés:`, allLabels.slice(0, 20)); // Afficher les 20 premiers
 
       // Trouver et cliquer les 2 filtres
       const filtersToApply = ['<10€', 'De 10 à 20€'];
@@ -323,12 +329,20 @@ class ScraperHybridV2 {
 
     try {
       await page.goto(url, { waitUntil: 'networkidle2', timeout: 30000 });
+      await page.waitForTimeout(3000); // Attendre que la page charge
 
       const data = await page.evaluate(() => {
         const priceEl = document.querySelector('.UserPrice-amount, .Price-amount');
         const eanEl = document.querySelector('span[itemprop="gtin13"]');
         const brandEl = document.querySelector('span[itemprop="brand"]');
         const titleEl = document.querySelector('h1[itemprop="name"]');
+
+        // DEBUG: Chercher tous les sélecteurs possibles pour le prix
+        const allPriceClasses = Array.from(document.querySelectorAll('[class*="price" i], [class*="Price" i]'))
+          .map(el => el.className)
+          .slice(0, 5);
+
+        console.log('DEBUG - Classes prix trouvées:', allPriceClasses);
 
         // DEBUG: afficher ce qui est trouvé
         console.log('DEBUG getProductDetails:', {
