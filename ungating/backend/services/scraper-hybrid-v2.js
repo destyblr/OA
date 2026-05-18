@@ -329,30 +329,35 @@ class ScraperHybridV2 {
       await page.waitForTimeout(3000); // Attendre que la page charge
 
       const data = await page.evaluate(() => {
-        const priceEl = document.querySelector('.UserPrice-amount, .Price-amount');
-        const eanEl = document.querySelector('span[itemprop="gtin13"]');
-        const brandEl = document.querySelector('span[itemprop="brand"]');
-        const titleEl = document.querySelector('h1[itemprop="name"]');
+        // Nouveaux sélecteurs FNAC Pro
+        const priceEl = document.querySelector('.f-faPriceBox__price.userPrice, .f-faPriceBox__price');
+        const titleEl = document.querySelector('h1.f-productHeader__heading, h1');
 
-        // DEBUG: Chercher tous les sélecteurs possibles pour le prix
-        const allPriceClasses = Array.from(document.querySelectorAll('[class*="price" i], [class*="Price" i]'))
-          .map(el => el.className)
-          .slice(0, 5);
+        // EAN: chercher dans les propriétés produit
+        let ean = null;
+        const eanDd = document.querySelector('dd[aria-label*="EAN"] p, dd.f-productProperties__definition');
+        if (eanDd) {
+          const text = eanDd.innerText.trim();
+          // Vérifier que c'est bien un EAN (13 chiffres)
+          if (/^\d{13}$/.test(text)) {
+            ean = text;
+          }
+        }
 
-        console.log('DEBUG - Classes prix trouvées:', allPriceClasses);
-
-        // DEBUG: afficher ce qui est trouvé
-        console.log('DEBUG getProductDetails:', {
-          priceText: priceEl ? priceEl.innerText : 'NOT FOUND',
-          ean: eanEl ? eanEl.innerText : 'NOT FOUND',
-          brand: brandEl ? brandEl.innerText : 'NOT FOUND',
-          title: titleEl ? titleEl.innerText : 'NOT FOUND'
-        });
+        // Marque: chercher "Editeur" dans les caractéristiques
+        let brand = null;
+        const dtElements = document.querySelectorAll('dt.f-productProperties__term');
+        for (const dt of dtElements) {
+          if (dt.innerText.trim() === 'Editeur') {
+            const dd = dt.nextElementSibling;
+            if (dd) brand = dd.innerText.trim();
+          }
+        }
 
         return {
           price: priceEl ? parseFloat(priceEl.innerText.replace(',', '.').replace(/[^0-9.]/g, '')) : null,
-          ean: eanEl ? eanEl.innerText.trim() : null,
-          brand: brandEl ? brandEl.innerText.trim() : null,
+          ean: ean,
+          brand: brand || 'Unknown',
           title: titleEl ? titleEl.innerText.trim() : null,
           url: window.location.href
         };
