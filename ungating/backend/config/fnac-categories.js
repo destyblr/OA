@@ -16,15 +16,15 @@ module.exports = {
 
   beauty: {
     label: "Beauté",
-    type: "url",
-    url: "https://www.fnacpro.com/Tous-les-bons-plans-Beaute-Sante-Forme/Bons-plans-Beaute-Sante-Forme/nsh530301/w-4",
-    // URL directe vers la page "Bons plans Beauté Santé Forme"
+    type: "search",
+    keyword: "beaute",
+    // URL construite dynamiquement: https://www.fnacpro.com/SearchResult/ResultList.aspx?SDM=list&Search=beaute&sft=1
   },
 
   home: {
     label: "Maison",
-    type: "url",
-    url: "https://www.fnacpro.com/SearchResult/ResultList.aspx?SCat=23!1&SDM=list&Search=maison&sft=1",
-    // URL avec sous-catégorie SCat=23!1
+    type: "search",
+    keyword: "maison",
+    // URL construite dynamiquement: https://www.fnacpro.com/SearchResult/ResultList.aspx?SDM=list&Search=maison&sft=1
   }
 };

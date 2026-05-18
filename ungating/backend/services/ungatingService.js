@@ -87,7 +87,7 @@ class UngatingService {
       });
 
       // Récupérer les résultats depuis la DB
-      const { data: opportunities } = await supabase
+      const { data: opportunities, error: fetchError } = await supabase
         .from('products')
         .select(`
           *,
@@ -96,6 +96,12 @@ class UngatingService {
         .not('restrictions', 'is', null)
         .order('created_at', { ascending: false })
         .limit(totalProcessed);
+
+      if (fetchError || !opportunities) {
+        console.error('Error fetching opportunities:', fetchError);
+        io.emit(`scan:${scanId}:complete`, []);
+        return;
+      }
 
       // Calculer scores et trier
       const results = opportunities.map(opp => {
