@@ -272,25 +272,44 @@ class ScraperHybridV2 {
    */
   async applyPriceFilters(page, maxPrice) {
     try {
+      console.log(`   💶 Application des 2 filtres obligatoires...`);
       await page.waitForTimeout(2000);
 
-      const labels = await page.evaluate(() => {
-        return Array.from(document.querySelectorAll('label')).map(l => l.innerText.trim());
-      });
+      // Trouver et cliquer les 2 filtres
+      const filtersToApply = ['<10€', 'De 10 à 20€'];
 
-      const filtersToClick = [];
-      if (maxPrice >= 10) filtersToClick.push('<10€');
-      if (maxPrice >= 20) filtersToClick.push('De 10 à 20€');
+      for (const filterText of filtersToApply) {
+        const clicked = await page.evaluate((text) => {
+          const labels = Array.from(document.querySelectorAll('label'));
+          const label = labels.find(l => l.innerText.trim() === text);
 
-      for (const filterText of filtersToClick) {
-        if (labels.includes(filterText)) {
-          await page.evaluate((text) => {
-            const label = Array.from(document.querySelectorAll('label')).find(l => l.innerText.trim() === text);
-            if (label) label.click();
-          }, filterText);
-          await page.waitForTimeout(1000);
+          if (label) {
+            // Chercher la checkbox dans le label
+            const checkbox = label.querySelector('input[type="checkbox"]');
+            if (checkbox && !checkbox.checked) {
+              checkbox.click();
+              return true;
+            }
+          }
+          return false;
+        }, filterText);
+
+        if (clicked) {
+          console.log(`      ✓ Filtre "${filterText}" appliqué`);
+          await page.waitForTimeout(1500);
+        } else {
+          console.log(`      ⚠️ Filtre "${filterText}" non trouvé !`);
         }
       }
+
+      // Vérifier que les filtres sont bien cochés
+      const verified = await page.evaluate(() => {
+        const checkboxes = Array.from(document.querySelectorAll('input[type="checkbox"]:checked'));
+        return checkboxes.length;
+      });
+
+      console.log(`   ✓ ${verified} filtres cochés au total`);
+
     } catch (err) {
       console.error(`   ⚠️ Erreur filtres: ${err.message}`);
     }
