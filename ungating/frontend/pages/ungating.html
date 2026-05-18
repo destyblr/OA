@@ -185,6 +185,7 @@ tailwind.config = {
 </style>
 
 <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
 <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
 <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
@@ -240,6 +241,12 @@ const CATS = [
 ];
 
 const TVA = 0.20;
+
+// Supabase client
+const supabase = window.supabase.createClient(
+  'https://tkjrcykepdtpascomuqn.supabase.co',
+  'sb_publishable_7gOq2OKCdtmZjrgRfp_8Rw_tjZe2ijU'
+);
 
 // Pas de données MOCK - tout vient de Supabase en live
 const HISTORY = [];
@@ -356,7 +363,7 @@ const Sidebar = () => (
 );
 
 /* ============ TOPBAR ============ */
-const Topbar = ({ onRun, scanning }) => (
+const Topbar = ({ onRun, scanning, onRefresh, loading }) => (
   <header className="sticky top-0 z-20 sticky-shadow">
     <div className="h-13 px-4 md:px-7 flex items-center gap-2 md:gap-3 py-2.5">
       <div className="hidden sm:flex items-center gap-2 text-[13px]">
@@ -365,9 +372,9 @@ const Topbar = ({ onRun, scanning }) => (
         <span className="text-zinc-900 font-medium">Ungating</span>
       </div>
       <span className="sm:hidden text-[14px] font-semibold text-zinc-900">OA</span>
-      <Badge tone="green" dot className="mono uppercase tracking-wider !text-[10px] !h-[22px] !px-2 whitespace-nowrap hidden lg:inline-flex">Seller Central · live</Badge>
+      <Badge tone="green" dot className="mono uppercase tracking-wider !text-[10px] !h-[22px] !px-2 whitespace-nowrap hidden lg:inline-flex">Supabase · live</Badge>
       <div className="flex-1"/>
-      <Button variant="ghost" size="sm" icon={<I.Refresh size={13}/>} className="!px-2 sm:!px-3"><span className="hidden sm:inline">Actualiser</span></Button>
+      <Button variant="ghost" size="sm" icon={<I.Refresh size={13}/>} onClick={onRefresh} disabled={loading} className="!px-2 sm:!px-3"><span className="hidden sm:inline">Actualiser</span></Button>
       <Button variant="secondary" size="sm" icon={<I.Down size={13}/>} className="hidden md:inline-flex">Exporter CSV</Button>
       <Button variant="accent" size="sm"
         icon={scanning ? <span className="w-3.5 h-3.5 rounded-full border-[1.5px] border-white/30 border-t-white spin"/> : <I.Bolt size={13}/>}
@@ -478,7 +485,7 @@ const PageHero = ({ results }) => {
 };
 
 /* ============ QUICK LAUNCH CARDS ============ */
-const QuickLaunchCard = ({ cat, onLaunch, disabled }) => {
+const QuickLaunchCard = ({ cat }) => {
   const icons = {
     toys: "🧸",
     beauty: "💄",
@@ -486,46 +493,35 @@ const QuickLaunchCard = ({ cat, onLaunch, disabled }) => {
   };
 
   return (
-    <button
-      onClick={() => !disabled && onLaunch(cat.id)}
-      disabled={disabled}
-      className={cn(
-        "group relative overflow-hidden rounded-xl border-2 bg-white shadow-card transition-all duration-200",
-        "hover:shadow-lg hover:scale-[1.02] hover:border-cobalt-500 active:scale-[0.98]",
-        disabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer"
-      )}
-    >
+    <div className="group relative overflow-hidden rounded-xl border-2 border-zinc-200 bg-white shadow-card">
       <div className="p-6 flex flex-col items-center text-center gap-4">
-        <div className="text-5xl">{icons[cat.id]}</div>
+        <div className="text-5xl opacity-40">{icons[cat.id]}</div>
         <div>
           <h3 className="text-[17px] font-semibold text-zinc-900 mb-1">{cat.label}</h3>
           <p className="text-[12px] text-zinc-500 mono uppercase tracking-wider">{cat.count} opportunités</p>
         </div>
-        <div className={cn(
-          "mt-2 px-4 py-2 rounded-lg text-[13px] font-medium transition-colors",
-          "bg-zinc-900 text-white group-hover:bg-cobalt-500"
-        )}>
-          {disabled ? "Scan en cours..." : "Lancer le scan"}
+        <div className="mt-2 px-4 py-2 rounded-lg text-[12px] font-medium bg-zinc-100 text-zinc-500">
+          Utilise les raccourcis bureau
         </div>
       </div>
-    </button>
+    </div>
   );
 };
 
-const QuickLaunchCards = ({ onLaunch, disabled }) => (
+const QuickLaunchCards = () => (
   <section className="space-y-4">
     <div className="flex items-center gap-3">
       <div className="w-9 h-9 rounded-lg bg-zinc-900 grid place-items-center text-white shrink-0">
         <I.Bolt size={16}/>
       </div>
       <div>
-        <h2 className="text-[15px] font-semibold tracking-[-0.01em] text-zinc-900">Lancement rapide</h2>
-        <p className="text-[12.5px] text-zinc-500 mt-0.5">Clique sur une catégorie pour lancer le scan automatiquement</p>
+        <h2 className="text-[15px] font-semibold tracking-[-0.01em] text-zinc-900">Catégories disponibles</h2>
+        <p className="text-[12.5px] text-zinc-500 mt-0.5">Lance les scans depuis ton ordinateur avec les raccourcis bureau</p>
       </div>
     </div>
     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
       {CATS.map(cat => (
-        <QuickLaunchCard key={cat.id} cat={cat} onLaunch={onLaunch} disabled={disabled} />
+        <QuickLaunchCard key={cat.id} cat={cat} />
       ))}
     </div>
   </section>
@@ -1029,7 +1025,54 @@ function App() {
   const [results, setResults] = useState([]);
   const [history, setHistory] = useState(HISTORY);
   const [openedScan, setOpenedScan] = useState(null);
+  const [loading, setLoading] = useState(true);
   const ref = useRef(null);
+
+  // Charger les derniers résultats depuis Supabase
+  const loadResultsFromSupabase = async () => {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('opportunities')
+        .select(`
+          *,
+          products!inner(*),
+          restrictions!inner(*)
+        `)
+        .order('created_at', { ascending: false })
+        .limit(100);
+
+      if (error) throw error;
+
+      // Transformer les données Supabase en format dashboard
+      const formattedResults = data.map(opp => ({
+        brand: opp.products.brand,
+        title: opp.products.title,
+        price: opp.products.price,
+        ean: opp.products.ean,
+        asin: opp.products.asin,
+        url: opp.products.url,
+        units: opp.restrictions.units_required || 1,
+        type: opp.restrictions.type,
+        unlocks: opp.restrictions.approval_text,
+        costHT: opp.cost_ht,
+        costTTC: opp.cost_ttc,
+        score: opp.score,
+        hot: opp.score >= 4
+      }));
+
+      setResults(formattedResults);
+    } catch (error) {
+      console.error('Erreur Supabase:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Charger au démarrage
+  useEffect(() => {
+    loadResultsFromSupabase();
+  }, []);
 
   const openScan = (h) => {
     setResults(h.rows || []);
@@ -1117,10 +1160,10 @@ function App() {
     <div className="flex md:pl-14" data-screen-label="Ungating">
       <Sidebar/>
       <main className="flex-1 min-w-0">
-        <Topbar onRun={start} scanning={scanning}/>
+        <Topbar onRun={start} scanning={scanning} onRefresh={loadResultsFromSupabase} loading={loading}/>
         <PageHero results={results}/>
         <div className="px-4 md:px-7 pb-10 space-y-6">
-          <QuickLaunchCards onLaunch={quickLaunch} disabled={scanning}/>
+          <QuickLaunchCards/>
           <PipelineCard progress={progress} scanning={scanning}/>
           <ResultsTable rows={results} openedScan={openedScan} onCloseScan={closeScan}/>
           <HistoryTable history={history} onOpen={openScan}/>
