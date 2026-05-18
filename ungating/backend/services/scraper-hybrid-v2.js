@@ -290,19 +290,16 @@ class ScraperHybridV2 {
           const label = labels.find(l => l.innerText.trim() === text);
 
           if (label) {
-            // Chercher la checkbox dans le label
-            const checkbox = label.querySelector('input[type="checkbox"]');
-            if (checkbox && !checkbox.checked) {
-              checkbox.click();
-              return true;
-            }
+            // Cliquer directement sur le label (ça coche la checkbox associée)
+            label.click();
+            return true;
           }
           return false;
         }, filterText);
 
         if (clicked) {
-          console.log(`      ✓ Filtre "${filterText}" appliqué`);
-          await page.waitForTimeout(1500);
+          console.log(`      ✓ Filtre "${filterText}" cliqué`);
+          await page.waitForTimeout(2000); // Attendre le rechargement
         } else {
           console.log(`      ⚠️ Filtre "${filterText}" non trouvé !`);
         }
