@@ -711,8 +711,8 @@ const ResultsTable = ({ rows, openedScan, onCloseScan }) => {
       const row = updated[index];
       const units = Math.max(1, parseInt(newUnits) || 1);
       const bonus = row.type === 'CATEGORY' ? 1.5 : 1.0;
-      const costHT = row.price * units;
-      const costTTC = costHT * (1 + TVA);
+      const costTTC = row.price * units; // Prix FNAC est TTC
+      const costHT = costTTC / (1 + TVA);
       const rawScore = bonus / costTTC;
       const score = Math.min(5, Math.max(1, Math.ceil(rawScore * 1000)));
 
@@ -744,7 +744,7 @@ const ResultsTable = ({ rows, openedScan, onCloseScan }) => {
     for (const r of filtered) (g[r.unlocks] ||= []).push(r);
     return Object.entries(g).sort((a,b) => b[1].length - a[1].length);
   }, [filtered]);
-  const totalTTC = filtered.reduce((s,r)=>s + r.costHT*(1+TVA), 0);
+  const totalTTC = filtered.reduce((s,r)=>s + r.costTTC, 0);
 
   return (
     <section id="results-section" className={cn("rounded-xl border bg-white shadow-card overflow-hidden transition-all", openedScan ? "border-cobalt-500 ring-4 ring-cobalt-500/15" : "border-zinc-200")}>
@@ -854,7 +854,7 @@ const ResultsTable = ({ rows, openedScan, onCloseScan }) => {
                       </span>
                       <div className="flex-1"/>
                       <span className="mono text-[10.5px] uppercase tracking-wider text-zinc-400">
-                        Moy. <span className="text-zinc-900 tnum">{(items.reduce((s,r)=>s+r.costHT*(1+TVA),0)/items.length).toFixed(2)} €</span>
+                        Moy. <span className="text-zinc-900 tnum">{(items.reduce((s,r)=>s+r.costTTC,0)/items.length).toFixed(2)} €</span>
                       </span>
                     </div>
                   </td>
@@ -867,7 +867,7 @@ const ResultsTable = ({ rows, openedScan, onCloseScan }) => {
                       </span>
                       <div className="flex-1"/>
                       <span className="mono text-[10.5px] uppercase tracking-wider text-zinc-400">
-                        Moy. <span className="text-zinc-900 tnum">{(items.reduce((s,r)=>s+r.costHT*(1+TVA),0)/items.length).toFixed(2)} €</span>
+                        Moy. <span className="text-zinc-900 tnum">{(items.reduce((s,r)=>s+r.costTTC,0)/items.length).toFixed(2)} €</span>
                       </span>
                     </div>
                   </td>
@@ -908,9 +908,9 @@ const ResultsTable = ({ rows, openedScan, onCloseScan }) => {
                       <div className="mono text-[9.5px] uppercase tracking-wider text-zinc-400 text-right mt-0.5">éditable</div>
                     </td>
                     <td className="px-2 py-3 text-right whitespace-nowrap align-middle">
-                      <div className="text-[13.5px] tnum font-semibold text-zinc-900">{(r.costHT*(1+TVA)).toFixed(2)} €</div>
+                      <div className="text-[13.5px] tnum font-semibold text-zinc-900">{r.costTTC.toFixed(2)} €</div>
                       <div className="mono text-[10px] tnum text-zinc-400">
-                        {r.costHT.toFixed(2)} HT · +{(r.costHT*TVA).toFixed(2)} TVA
+                        {r.costHT.toFixed(2)} HT · +{(r.costTTC - r.costHT).toFixed(2)} TVA
                       </div>
                     </td>
                     <td className="px-2 py-3 align-middle hidden xl:table-cell"><TypeBadge type={r.type}/></td>
