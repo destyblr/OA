@@ -59,6 +59,7 @@ class UngatingService {
 
   /**
    * Exécute le scan complet (appelé en background)
+   * Nouveau flow: produit par produit avec saves DB incrémentales
    */
   async runScan(scanId, maxPrice, cats, io) {
     try {
@@ -73,61 +74,55 @@ class UngatingService {
         io.emit(`scan:${scanId}:progress`, scanData);
       };
 
-      // ÉTAPE 1 : Scraper FNAC Pro (0-40%)
-      updateProgress('fnac', 5, { productsScraped: 0 });
-      const products = await scraper.scrapeFnacPro(maxPrice, cats, (progressData) => {
-        const progress = 5 + (progressData.categoryIndex / progressData.totalCategories) * 35;
-        updateProgress('fnac', progress, {
-          productsScraped: progressData.productsFound,
-          currentCategory: progressData.category
+      updateProgress('scanning', 5, { productsProcessed: 0 });
+
+      // Le nouveau scraper gère TOUT: FNAC + Seller Central + DB saves produit par produit
+      const totalProcessed = await scraper.runScan(scanId, maxPrice, cats, (progressData) => {
+        const progress = 5 + (progressData.productsProcessed / progressData.maxProducts) * 90;
+        updateProgress('scanning', progress, {
+          productsProcessed: progressData.productsProcessed,
+          maxProducts: progressData.maxProducts,
+          currentProduct: progressData.currentProduct
         });
       });
-      updateProgress('fnac', 40, { productsScraped: products.length });
 
-      // ÉTAPE 2 : Check restrictions Seller Central avec EAN (40-80%)
-      updateProgress('seller_central', 42, { asinsChecked: 0 });
-      const restricted = await scraper.checkRestrictions(products, (progressData) => {
-        const progress = 40 + (progressData.checked / progressData.total) * 40;
-        updateProgress('seller_central', progress, {
-          asinsChecked: progressData.checked,
-          restrictionsFound: progressData.restrictedFound
-        });
-      });
-      updateProgress('seller_central', 80, { restrictionsFound: restricted.length });
+      // Récupérer les résultats depuis la DB
+      const { data: opportunities } = await supabase
+        .from('products')
+        .select(`
+          *,
+          restrictions (*)
+        `)
+        .not('restrictions', 'is', null)
+        .order('created_at', { ascending: false })
+        .limit(totalProcessed);
 
-      // ÉTAPE 3 : Détecter type + Calculer score (80-88%)
-      updateProgress('score', 82, {});
-      const opportunities = restricted.map(product => {
-        const type = this.detectType(product.approvalText);
-        const score = this.calculateScore(product, type);
-        return { ...product, ...type, ...score };
-      });
-      updateProgress('score', 88, {});
+      // Calculer scores et trier
+      const results = opportunities.map(opp => {
+        const restriction = opp.restrictions[0];
+        const type = this.detectType(restriction?.approval_text);
+        const score = this.calculateScore({ price: opp.price, units: restriction?.units_required }, type);
+        return {
+          ...opp,
+          ...restriction,
+          ...type,
+          ...score
+        };
+      }).sort((a, b) => b.score - a.score);
 
-      // ÉTAPE 4 : Sauvegarder en base (88-96%)
-      updateProgress('supabase', 90, {});
-      await this.saveOpportunities(scanId, opportunities);
-      updateProgress('supabase', 96, {});
-
-      // ÉTAPE 5 : Finaliser (96-100%)
-      const results = opportunities.sort((a, b) => b.score - a.score);
-
-      // Mettre à jour le scan dans Supabase
+      // Mettre à jour le scan
       await supabase
         .from('scans')
         .update({
           status: 'completed',
           results_count: results.length,
-          total_cost: results.reduce((sum, r) => sum + r.costTTC, 0)
+          total_cost: results.reduce((sum, r) => sum + (r.costTTC || 0), 0)
         })
         .eq('id', scanId);
 
       updateProgress('complete', 100, {});
-
-      // Envoyer les résultats finaux
       io.emit(`scan:${scanId}:complete`, results);
 
-      // Nettoyer le browser Puppeteer
       await scraper.close();
 
       // Nettoyer le tracking
