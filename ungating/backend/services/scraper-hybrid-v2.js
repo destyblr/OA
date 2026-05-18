@@ -194,6 +194,9 @@ class ScraperHybridV2 {
         });
       }
 
+      console.log(`   ⏸️  ATTENTE: Résous le CAPTCHA si nécessaire (30 secondes)...`);
+      await page.waitForTimeout(30000); // 30 secondes pour le CAPTCHA
+
       // Appliquer filtres prix
       await this.applyPriceFilters(page, maxPrice);
 
