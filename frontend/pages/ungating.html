@@ -983,7 +983,7 @@ function App() {
 
     try {
       // Lancer le scan sur le backend
-      const response = await fetch('http://localhost:3000/api/ungating/scan/start', {
+      const response = await fetch('https://oa-0l3r.onrender.com/api/ungating/scan/start', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -995,7 +995,7 @@ function App() {
       const { scanId } = await response.json();
 
       // Connecter Socket.io pour les updates temps réel
-      const socket = io('http://localhost:3000');
+      const socket = io('https://oa-0l3r.onrender.com');
 
       socket.on(`scan:${scanId}:progress`, (data) => {
         setProgress(data.progress);
