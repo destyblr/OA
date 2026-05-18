@@ -216,6 +216,8 @@ class ScraperHybridV2 {
         for (const link of productLinks) {
           if (products.length >= MAX_PRODUCTS) break;
 
+          console.log(`   → ${link.title.substring(0, 50)}...`);
+
           try {
             const productData = await this.getProductDetails(link.url);
 
@@ -223,10 +225,12 @@ class ScraperHybridV2 {
               // Sauvegarder en DB
               const saved = await this.saveProduct(productData);
               products.push({ ...productData, id: saved.id });
-              console.log(`   ✓ ${productData.brand} - ${productData.price}€`);
+              console.log(`      ✓ ${productData.brand} - ${productData.price}€`);
+            } else {
+              console.log(`      ✗ Données manquantes`);
             }
           } catch (err) {
-            console.error(`   ✗ Erreur: ${err.message}`);
+            console.error(`      ✗ Erreur: ${err.message}`);
           }
         }
 
@@ -304,6 +308,14 @@ class ScraperHybridV2 {
         const brandEl = document.querySelector('span[itemprop="brand"]');
         const titleEl = document.querySelector('h1[itemprop="name"]');
 
+        // DEBUG: afficher ce qui est trouvé
+        console.log('DEBUG getProductDetails:', {
+          priceText: priceEl ? priceEl.innerText : 'NOT FOUND',
+          ean: eanEl ? eanEl.innerText : 'NOT FOUND',
+          brand: brandEl ? brandEl.innerText : 'NOT FOUND',
+          title: titleEl ? titleEl.innerText : 'NOT FOUND'
+        });
+
         return {
           price: priceEl ? parseFloat(priceEl.innerText.replace(',', '.').replace(/[^0-9.]/g, '')) : null,
           ean: eanEl ? eanEl.innerText.trim() : null,
@@ -315,9 +327,12 @@ class ScraperHybridV2 {
 
       await page.close();
 
+      console.log(`      📊 Extrait: prix=${data.price}, EAN=${data.ean ? 'OK' : 'MANQUANT'}`);
+
       if (!data.price || !data.ean) return null;
       return data;
     } catch (err) {
+      console.error(`      ❌ getProductDetails error: ${err.message}`);
       await page.close();
       return null;
     }
