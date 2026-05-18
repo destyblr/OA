@@ -335,12 +335,18 @@ class ScraperHybridV2 {
 
         // EAN: chercher dans les propriétés produit
         let ean = null;
-        const eanDd = document.querySelector('dd[aria-label*="EAN"] p, dd.f-productProperties__definition');
-        if (eanDd) {
-          const text = eanDd.innerText.trim();
-          // Vérifier que c'est bien un EAN (13 chiffres)
-          if (/^\d{13}$/.test(text)) {
-            ean = text;
+        const dtElements = document.querySelectorAll('dt.f-productProperties__term');
+        for (const dt of dtElements) {
+          if (dt.innerText.trim() === 'EAN') {
+            const dd = dt.nextElementSibling;
+            if (dd) {
+              const text = dd.innerText.trim().replace(/\s/g, ''); // Enlever tous les espaces
+              // Vérifier que c'est bien un EAN (13 chiffres)
+              if (/^\d{13}$/.test(text)) {
+                ean = text;
+                break;
+              }
+            }
           }
         }
 
