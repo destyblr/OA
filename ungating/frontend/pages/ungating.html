@@ -1033,20 +1033,63 @@ function App() {
   const [loading, setLoading] = useState(true);
   const ref = useRef(null);
 
+  // Charger l'historique des scans depuis Supabase
+  const loadScansHistory = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('scans')
+        .select('*')
+        .order('scan_date', { ascending: false })
+        .limit(20);
+
+      if (error) throw error;
+
+      const formattedHistory = data.map(scan => {
+        const date = new Date(scan.scan_date);
+        const dd = String(date.getDate()).padStart(2, "0");
+        const months = ["jan","fév","mar","avr","mai","juin","juil","aoû","sep","oct","nov","déc"];
+        const dateStr = `${dd} ${months[date.getMonth()]} · ${String(date.getHours()).padStart(2,"0")}:${String(date.getMinutes()).padStart(2,"0")}`;
+
+        const catLabels = (scan.categories || []).map(id => CATS.find(c=>c.id===id)?.label).filter(Boolean);
+        const filtersStr = `${catLabels.slice(0,2).join(", ")}${catLabels.length>2?` +${catLabels.length-2}`:""} · ≤ ${scan.max_price}€`;
+
+        return {
+          id: scan.id.toString(),
+          date: dateStr,
+          filters: filtersStr,
+          results: scan.results_count || 0,
+          cost: scan.total_cost || 0,
+          status: scan.status === 'completed' ? 'Terminé' : scan.status === 'running' ? 'En cours' : 'Échoué'
+        };
+      });
+
+      setHistory(formattedHistory);
+    } catch (error) {
+      console.error('Erreur chargement historique:', error);
+    }
+  };
+
   // Charger les derniers résultats depuis Supabase
-  const loadResultsFromSupabase = async () => {
+  const loadResultsFromSupabase = async (scanId = null) => {
     setLoading(true);
     try {
-      // 1. Charger les opportunities
-      const { data, error } = await supabase
+      // 1. Charger les opportunities (avec filtre optionnel par scan_id)
+      let query = supabase
         .from('opportunities')
         .select(`
           *,
           products!inner(*),
           restrictions!inner(*)
         `)
-        .order('created_at', { ascending: false })
-        .limit(100);
+        .order('created_at', { ascending: false });
+
+      if (scanId) {
+        query = query.eq('scan_id', scanId);
+      } else {
+        query = query.limit(100);
+      }
+
+      const { data, error } = await query;
 
       if (error) throw error;
 
@@ -1120,20 +1163,24 @@ function App() {
   // Charger au démarrage
   useEffect(() => {
     loadResultsFromSupabase();
+    loadScansHistory();
   }, []);
 
-  const openScan = (h) => {
-    setResults(h.rows || []);
-    if (h.form) setForm(h.form);
+  const openScan = async (h) => {
+    setLoading(true);
     setOpenedScan({id: h.id, date: h.date, filters: h.filters});
+
+    // Charger les résultats de ce scan depuis Supabase
+    await loadResultsFromSupabase(h.id);
+
     setTimeout(() => {
       const el = document.getElementById("results-section");
       if (el) window.scrollTo({ top: el.offsetTop - 70, behavior: "smooth" });
     }, 50);
   };
-  const closeScan = () => {
-    setResults(MOCK);
+  const closeScan = async () => {
     setOpenedScan(null);
+    await loadResultsFromSupabase(); // Recharger tous les résultats
   };
 
   const launchScan = async (categories) => {
@@ -1160,30 +1207,13 @@ function App() {
         setProgress(data.progress);
       });
 
-      socket.on(`scan:${scanId}:complete`, (results) => {
+      socket.on(`scan:${scanId}:complete`, async (results) => {
         setScanning(false);
         setProgress(100);
-        setResults(results);
 
-        // Append to history
-        const totalCost = results.reduce((s,r)=>s + r.costTTC, 0);
-        const catLabels = categories.map(id => CATS.find(c=>c.id===id)?.label).filter(Boolean);
-        const filtersStr = `${catLabels.slice(0,2).join(", ")}${catLabels.length>2?` +${catLabels.length-2}`:""} · ≤ 20€`;
-        const now = new Date();
-        const dd = String(now.getDate()).padStart(2,"0");
-        const months = ["jan","fév","mar","avr","mai","juin","juil","aoû","sep","oct","nov","déc"];
-        const dateStr = `${dd} ${months[now.getMonth()]} · ${String(now.getHours()).padStart(2,"0")}:${String(now.getMinutes()).padStart(2,"0")}`;
-        const nextId = String(parseInt(history[0]?.id || "2200")+1);
-
-        setHistory(h => [{
-          id: nextId,
-          date: dateStr,
-          filters: filtersStr,
-          results: results.length,
-          cost: totalCost,
-          status: results.length>0 ? "done" : "empty",
-          fresh: true,
-        }, ...h.map(x=>({...x, fresh:false}))].slice(0,6));
+        // Recharger les résultats et l'historique depuis Supabase
+        await loadResultsFromSupabase(scanId);
+        await loadScansHistory();
 
         socket.disconnect();
       });

@@ -67,6 +67,7 @@ class ScraperHybridV2 {
    * WORKFLOW PRINCIPAL - 3 PHASES SÉPARÉES
    */
   async runScan(scanId, maxPrice, categories, progressCallback = () => {}) {
+    this.currentScanId = scanId; // Stocker pour saveOpportunity
     const allProducts = [];
 
     // ============================================
@@ -111,11 +112,21 @@ class ScraperHybridV2 {
         const restriction = await oldScraper.checkSellerCentralWithPlaywright(product.ean);
 
         if (restriction) {
+          // MAINTENANT on sauvegarde le produit (après vérification Seller Central)
+          console.log(`   💾 Sauvegarde produit en base...`);
+          const savedProduct = await this.saveProduct(product);
+          product.id = savedProduct.id; // Ajouter l'ID pour l'opportunity
+
+          // Sauvegarder la restriction
           await this.saveRestriction(restriction);
 
           if (restriction.isRestricted) {
             console.log(`   ✓ RESTREINT: ${restriction.type} - ${restriction.approvalText}`);
             console.log(`   📦 ${restriction.units} unités requises`);
+
+            // Créer l'opportunity (lien products ↔ restrictions)
+            await this.saveOpportunity(product, restriction);
+            console.log(`   💾 Opportunity créée`);
           } else {
             console.log(`   ✓ Non restreint`);
           }
@@ -165,12 +176,21 @@ class ScraperHybridV2 {
       // Appliquer filtres prix
       await this.applyPriceFilters(page, maxPrice);
 
-      // Extraire tous les produits
-      const MAX_PRODUCTS = 60;
-      let loadMoreClicks = 0;
-      const MAX_LOAD_MORE = 2;
+      // Charger les EAN déjà en base (cache pour skip)
+      console.log(`   📦 Chargement cache EAN existants...`);
+      const existingEANs = await this.loadExistingEANs();
+      console.log(`   ✓ ${existingEANs.size} EAN en cache`);
 
-      while (products.length < MAX_PRODUCTS && loadMoreClicks <= MAX_LOAD_MORE) {
+      // Extraire tous les produits
+      const MIN_NEW_PRODUCTS = 20; // MINIMUM 20 nouveaux produits obligatoire
+      const MAX_LOAD_MORE = 50; // Augmenté pour chercher plus loin
+      let loadMoreClicks = 0;
+
+      const processedUrls = new Set(); // URLs déjà vues
+      let skipped = 0;
+
+      while (products.length < MIN_NEW_PRODUCTS && loadMoreClicks < MAX_LOAD_MORE) {
+        // Extraire liens visibles
         const productLinks = await page.evaluate(() => {
           return Array.from(document.querySelectorAll('a.Article-title')).map(a => ({
             title: a.innerText.trim(),
@@ -178,51 +198,111 @@ class ScraperHybridV2 {
           }));
         });
 
-        console.log(`   📋 ${productLinks.length} produits sur la page`);
+        console.log(`   📋 ${productLinks.length} produits visibles | ${products.length} traités | ${skipped} skippés`);
 
-        // Extraire détails de chaque produit
-        for (const link of productLinks) {
-          if (products.length >= MAX_PRODUCTS) break;
+        // Filtrer les liens pas encore vus
+        const newLinks = productLinks.filter(link => !processedUrls.has(link.url));
 
-          console.log(`   → ${link.title.substring(0, 50)}...`);
+        if (newLinks.length === 0) {
+          console.log(`   ⚠️ Tous les produits déjà vus, clic "Voir plus"...`);
+        }
+
+        // Traiter chaque produit
+        for (const link of newLinks) {
+          if (products.length >= MIN_NEW_PRODUCTS) break;
+
+          processedUrls.add(link.url); // Marquer comme vu
+          console.log(`   → [${products.length + 1}] ${link.title.substring(0, 45)}...`);
 
           try {
             const productData = await this.getProductDetails(link.url);
 
-            if (productData) {
-              // Sauvegarder en DB
-              const saved = await this.saveProduct(productData);
-              products.push({ ...productData, id: saved.id });
-              console.log(`      ✓ ${productData.brand} - ${productData.price}€`);
-            } else {
+            if (!productData) {
               console.log(`      ✗ Données manquantes`);
+              continue;
             }
+
+            // VÉRIFIER SI EAN EXISTE DÉJÀ EN BASE
+            if (existingEANs.has(productData.ean)) {
+              console.log(`      ⏭️ SKIP: EAN ${productData.ean} déjà en base`);
+              skipped++;
+              continue;
+            }
+
+            // Nouveau produit → NE PAS SAUVEGARDER encore (attendre Seller Central)
+            products.push(productData); // Juste garder en mémoire
+            existingEANs.add(productData.ean); // Ajouter au cache temporaire
+            console.log(`      ✅ ${productData.brand} - ${productData.price}€ (EAN: ${productData.ean}) [EN ATTENTE]`);
+
           } catch (err) {
             console.error(`      ✗ Erreur: ${err.message}`);
           }
         }
 
-        // Cliquer "Voir plus"
-        if (products.length < MAX_PRODUCTS && loadMoreClicks < MAX_LOAD_MORE) {
-          try {
-            await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
-            await page.waitForTimeout(1000);
+        // Vérifier si on a assez de nouveaux produits
+        if (products.length >= MIN_NEW_PRODUCTS) {
+          console.log(`   ✅ Objectif atteint: ${products.length} nouveaux produits`);
+          break;
+        }
 
-            const loadMoreBtn = await page.$('button.Article-itemListShowMore, a.Article-itemListShowMore');
-            if (loadMoreBtn) {
-              await loadMoreBtn.click();
-              await page.waitForTimeout(2000);
-              loadMoreClicks++;
-            } else {
+        // Cliquer "Voir plus" pour charger 20 produits de plus
+        if (loadMoreClicks < MAX_LOAD_MORE) {
+          try {
+            console.log(`   🔽 Clic "Voir plus" ${loadMoreClicks + 1}/${MAX_LOAD_MORE} | ${products.length}/${MIN_NEW_PRODUCTS} nouveaux produits...`);
+
+            await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+            await page.waitForTimeout(2000);
+
+            // Essayer plusieurs sélecteurs pour "Voir plus"
+            let loadMoreBtn = await page.$('button.Article-itemListShowMore, a.Article-itemListShowMore, button[class*="ShowMore"], a[class*="ShowMore"], button[class*="loadMore"], a[class*="loadMore"]');
+
+            // Si aucun sélecteur CSS ne fonctionne, chercher par texte
+            let btnFound = !!loadMoreBtn;
+            if (!loadMoreBtn) {
+              btnFound = await page.evaluate(() => {
+                const buttons = Array.from(document.querySelectorAll('button, a'));
+                const btn = buttons.find(b => {
+                  const text = b.textContent.trim().toLowerCase();
+                  return text.includes('voir plus') || text.includes('charger plus') || text.includes('afficher plus');
+                });
+                if (btn) {
+                  btn.click();
+                  return true;
+                }
+                return false;
+              });
+            }
+
+            if (!btnFound) {
+              console.log(`      ⚠️ Bouton "Voir plus" non trouvé, plus de produits disponibles.`);
               break;
             }
-          } catch {
+
+            // Cliquer et attendre chargement
+            if (loadMoreBtn) {
+              await loadMoreBtn.click();
+            }
+            await page.waitForTimeout(4000);
+
+            loadMoreClicks++;
+            console.log(`      ✓ Chargement terminé, nouveau scan...`);
+          } catch (err) {
+            console.log(`      ⚠️ Erreur "Voir plus": ${err.message}`);
             break;
           }
         } else {
+          console.log(`   ⚠️ Limite clics atteinte (${loadMoreClicks}/${MAX_LOAD_MORE})`);
           break;
         }
       }
+
+      // Vérification finale
+      if (products.length < MIN_NEW_PRODUCTS) {
+        console.log(`\n   ⚠️ ATTENTION: Seulement ${products.length}/${MIN_NEW_PRODUCTS} nouveaux produits trouvés`);
+        console.log(`   💡 Il faudrait peut-être élargir les filtres de prix ou essayer une autre catégorie\n`);
+      }
+
+      console.log(`\n   ✅ Catégorie terminée: ${products.length} nouveaux produits | ${skipped} skippés\n`);
     } catch (err) {
       console.error(`   ❌ Erreur catégorie: ${err.message}`);
     } finally {
@@ -516,6 +596,22 @@ class ScraperHybridV2 {
   }
 
   /**
+   * Charger les EAN déjà en base (pour skip)
+   */
+  async loadExistingEANs() {
+    const { data, error } = await supabase
+      .from('products')
+      .select('ean');
+
+    if (error) {
+      console.error(`   ⚠️ Erreur chargement EAN: ${error.message}`);
+      return new Set();
+    }
+
+    return new Set(data.map(p => p.ean));
+  }
+
+  /**
    * Sauvegarder produit en DB
    */
   async saveProduct(productData) {
@@ -554,6 +650,58 @@ class ScraperHybridV2 {
 
     if (error) throw error;
     return data;
+  }
+
+  async saveOpportunity(productData, restrictionData) {
+    try {
+      // Récupérer product_id via EAN
+      const { data: product, error: productError } = await supabase
+        .from('products')
+        .select('id, price, title, brand')
+        .eq('ean', productData.ean)
+        .single();
+
+      if (productError) throw productError;
+
+      console.log(`         🔗 Linking: product_id=${product.id} (${product.brand} - ${product.title?.substring(0, 30)}...)`);
+
+      // Récupérer restriction_id via ASIN
+      const { data: restriction, error: restrictionError } = await supabase
+        .from('restrictions')
+        .select('id')
+        .eq('asin', restrictionData.asin)
+        .single();
+
+      if (restrictionError) throw restrictionError;
+
+      // Calculer score et coûts (prix FNAC = TTC)
+      const TVA = 0.20;
+      const units = restrictionData.units || 1;
+      const costTTC = product.price * units; // Prix FNAC déjà en TTC
+      const costHT = costTTC / (1 + TVA);
+      const bonus = restrictionData.type === 'CATEGORY' ? 1.5 : 1.0;
+      const score = (bonus / costTTC) * 100; // Score sur 100
+
+      // Créer l'opportunity
+      const { data, error } = await supabase
+        .from('opportunities')
+        .insert({
+          scan_id: this.currentScanId,
+          product_id: product.id,
+          restriction_id: restriction.id,
+          cost_ht: costHT,
+          cost_ttc: costTTC,
+          score: score
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    } catch (err) {
+      console.error(`   ⚠️ Erreur saveOpportunity: ${err.message}`);
+      return null;
+    }
   }
 }
 

@@ -88,33 +88,38 @@ class UngatingService {
 
       // Récupérer les résultats depuis la DB
       const { data: opportunities, error: fetchError } = await supabase
-        .from('products')
+        .from('opportunities')
         .select(`
           *,
+          products (*),
           restrictions (*)
         `)
-        .not('restrictions', 'is', null)
-        .order('created_at', { ascending: false })
-        .limit(totalProcessed);
+        .eq('scan_id', scanId)
+        .order('score', { ascending: false });
 
-      if (fetchError || !opportunities) {
+      let results = [];
+
+      if (fetchError) {
         console.error('Error fetching opportunities:', fetchError);
-        io.emit(`scan:${scanId}:complete`, []);
-        return;
+      } else if (opportunities && opportunities.length > 0) {
+        // Formater les résultats
+        results = opportunities.map(opp => ({
+          id: opp.id,
+          brand: opp.products.brand,
+          title: opp.products.title,
+          price: opp.products.price,
+          ean: opp.products.ean,
+          asin: opp.restrictions.asin,
+          url: opp.products.url,
+          units: opp.restrictions.units_required,
+          type: opp.restrictions.type,
+          unlocks: opp.restrictions.approval_text,
+          costHT: opp.cost_ht,
+          costTTC: opp.cost_ttc,
+          score: opp.score,
+          hot: opp.score >= 4
+        }));
       }
-
-      // Calculer scores et trier
-      const results = opportunities.map(opp => {
-        const restriction = opp.restrictions[0];
-        const type = this.detectType(restriction?.approval_text);
-        const score = this.calculateScore({ price: opp.price, units: restriction?.units_required }, type);
-        return {
-          ...opp,
-          ...restriction,
-          ...type,
-          ...score
-        };
-      }).sort((a, b) => b.score - a.score);
 
       // Mettre à jour le scan
       await supabase
