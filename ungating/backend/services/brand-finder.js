@@ -326,6 +326,185 @@ class BrandFinder {
 
     return Math.min(score, 100);
   }
+
+  /**
+   * Scanner avec une configuration spécifique
+   */
+  async runScanWithConfig(rotation) {
+    const startTime = Date.now();
+
+    console.log(`\n🚀 SCAN MANUEL - ${rotation.name}`);
+    console.log(`📦 Catégorie: ${rotation.category} | BSR: ${rotation.bsrMin}-${rotation.bsrMax} | Prix: ${rotation.priceMin}-${rotation.priceMax}€\n`);
+
+    // Créer l'entrée dans l'historique
+    const scan = await scanTracker.createScan({
+      category: rotation.category,
+      bsrRange: [rotation.bsrMin, rotation.bsrMax],
+      priceRange: [rotation.priceMin * 100, rotation.priceMax * 100],
+      maxSellers: rotation.maxSellers,
+      excludeAmazon: true,
+      page: 1,
+      sortBy: 'current_SALES'
+    });
+
+    try {
+      // Étape 1 : Keepa Product Finder
+      console.log('🔍 Étape 1 : Keepa Product Finder\n');
+      const keepaResult = await keepaAPI.productFinder({
+        category: rotation.category,
+        bsrRange: [rotation.bsrMin, rotation.bsrMax],
+        priceRange: [rotation.priceMin * 100, rotation.priceMax * 100],
+        minRating: 400,
+        maxSellers: rotation.maxSellers,
+        excludeAmazon: true,
+        page: 1,
+        perPage: rotation.tokensPerScan
+      });
+
+      let products = keepaResult.products;
+      console.log(`   ✅ ${products.length} ASIN trouvés\n`);
+
+      // Étape 2 : Filtrer Hazmat (mots-clés)
+      console.log('⚠️  Étape 2 : Filtre Hazmat (mots-clés)\n');
+      products = products.filter(p => {
+        const isHazmat = HAZMAT_KEYWORDS.some(kw =>
+          (p.title || '').toLowerCase().includes(kw)
+        );
+
+        if (isHazmat) {
+          console.log(`   ❌ HAZMAT détecté: ${p.title.substring(0, 50)}...`);
+        }
+
+        return !isHazmat;
+      });
+      console.log(`   ✅ ${products.length} ASIN après filtre Hazmat\n`);
+
+      // Étape 3 : Vérifier restrictions + Hazmat via SP-API
+      console.log('🔐 Étape 3 : Vérification SP-API (restrictions + Hazmat)\n');
+      for (const product of products) {
+        try {
+          const [restrictionStatus, hazmatStatus] = await Promise.all([
+            spAPI.checkRestriction(product.asin),
+            spAPI.checkHazmat(product.asin)
+          ]);
+
+          product.isRestricted = restrictionStatus.isRestricted;
+          product.restrictionType = restrictionStatus.type;
+          product.isHazmat = hazmatStatus.isHazmat;
+
+          console.log(`   ${product.asin} - Restreint: ${product.isRestricted ? '✅' : '❌'} | Hazmat: ${product.isHazmat ? '⚠️' : '✅'}`);
+        } catch (error) {
+          console.log(`   ❌ ${product.asin} - Erreur SP-API: ${error.message}`);
+          product.isRestricted = false;
+          product.restrictionType = null;
+          product.isHazmat = false;
+        }
+      }
+
+      // Retirer les produits Hazmat détectés par SP-API
+      products = products.filter(p => !p.isHazmat);
+      console.log(`   ✅ ${products.length} ASIN après vérification SP-API\n`);
+
+      // Étape 4 : Sauvegarder les ASIN
+      console.log('💾 Étape 4 : Sauvegarde des ASIN\n');
+      for (const product of products) {
+        await scanTracker.saveAsin({
+          ...product,
+          category: rotation.category,
+          scanId: scan.id
+        });
+      }
+
+      // Étape 5 : Grouper par marque
+      console.log('🏷️  Étape 5 : Groupement par marque\n');
+      const brandMap = {};
+
+      products.forEach(p => {
+        const brand = p.brand;
+        if (!brandMap[brand]) {
+          brandMap[brand] = {
+            brand,
+            category: rotation.category,
+            products: []
+          };
+        }
+        brandMap[brand].products.push(p);
+      });
+
+      const brands = Object.values(brandMap);
+      console.log(`   ✅ ${brands.length} marques uniques trouvées\n`);
+
+      // Étape 6 : Checker FNAC + Calculer scores
+      console.log('🔍 Étape 6 : Vérification FNAC + Calcul scores\n');
+      for (const brand of brands) {
+        // Checker produits FNAC
+        const { data: fnacProducts } = await supabase
+          .from('products')
+          .select('*')
+          .ilike('brand', `%${brand.brand}%`)
+          .limit(10);
+
+        brand.fnacProducts = fnacProducts || [];
+        brand.nbProductsFnac = fnacProducts?.length || 0;
+
+        if (brand.nbProductsFnac > 0) {
+          brand.avgPriceFnac = fnacProducts.reduce((sum, p) => sum + (p.price || 0), 0) / fnacProducts.length;
+        }
+
+        // Calculer métriques
+        brand.nbProductsAmazon = brand.products.length;
+        brand.avgBsr = brand.products.reduce((sum, p) => sum + p.bsr, 0) / brand.products.length;
+        brand.minBsr = Math.min(...brand.products.map(p => p.bsr));
+        brand.avgPriceAmazon = brand.products.reduce((sum, p) => sum + p.price, 0) / brand.products.length;
+
+        // ROI estimation (simplifié)
+        if (brand.nbProductsFnac > 0 && brand.avgPriceFnac) {
+          const margin = brand.avgPriceAmazon - brand.avgPriceFnac;
+          brand.roiPercentage = (margin / brand.avgPriceFnac) * 100;
+          brand.estimatedMonthlyProfit = margin * 30; // Estimation simpliste
+          brand.paybackDays = brand.avgPriceFnac / margin;
+        }
+
+        // Calculer score de priorité
+        brand.priorityScore = this.calculatePriorityScore(brand);
+
+        // Sauvegarder en BDD
+        await scanTracker.saveBrand(brand);
+
+        console.log(`   ✅ ${brand.brand} - Score: ${brand.priorityScore}/100 | BSR: ${Math.round(brand.avgBsr)} | FNAC: ${brand.nbProductsFnac} produits`);
+      }
+
+      // Mise à jour du scan
+      const duration = Math.floor((Date.now() - startTime) / 1000);
+      await scanTracker.updateScan(scan.id, {
+        status: 'completed',
+        asinsFound: products.length,
+        brandsFound: brands.length,
+        brandsWithFnac: brands.filter(b => b.nbProductsFnac > 0).length,
+        tokensUsed: rotation.tokensPerScan,
+        durationSeconds: duration
+      });
+
+      console.log(`\n✅ SCAN TERMINÉ en ${duration}s`);
+      console.log(`📊 ${products.length} ASIN | ${brands.length} marques | ${brands.filter(b => b.nbProductsFnac > 0).length} avec FNAC\n`);
+
+      return {
+        scanId: scan.id,
+        summary: {
+          asinsFound: products.length,
+          brandsFound: brands.length,
+          brandsWithFnac: brands.filter(b => b.nbProductsFnac > 0).length,
+          tokensUsed: rotation.tokensPerScan,
+          duration
+        }
+      };
+
+    } catch (error) {
+      console.error(`❌ Erreur scan:`, error);
+      await scanTracker.markScanError(scan.id, error.message);
+      throw error;
+    }
+  }
 }
 
 module.exports = new BrandFinder();

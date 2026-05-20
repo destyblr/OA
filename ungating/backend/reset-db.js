@@ -1,7 +1,7 @@
 // Fix SSL certificate issue (temporaire pour dev local)
 process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
 
-require('dotenv').config({ path: '../.env' });
+require('dotenv').config({ path: './.env' });
 const supabase = require('./config/supabase');
 
 (async () => {

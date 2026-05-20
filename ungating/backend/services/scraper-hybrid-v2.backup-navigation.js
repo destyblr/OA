@@ -245,30 +245,53 @@ class ScraperHybridV2 {
           break;
         }
 
-        // Aller à la page suivante (via URL PageIndex)
-        try {
-          console.log(`   📄 Page ${loadMoreClicks + 2} | ${products.length}/${MIN_NEW_PRODUCTS} nouveaux produits...`);
+        // Cliquer "Voir plus" pour charger 20 produits de plus
+        if (loadMoreClicks < MAX_LOAD_MORE) {
+          try {
+            console.log(`   🔽 Clic "Voir plus" ${loadMoreClicks + 1}/${MAX_LOAD_MORE} | ${products.length}/${MIN_NEW_PRODUCTS} nouveaux produits...`);
 
-          // Récupérer l'URL actuelle et incrémenter PageIndex
-          const currentUrl = page.url();
-          let nextPageUrl;
+            await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+            await page.waitForTimeout(2000);
 
-          if (currentUrl.includes('PageIndex=')) {
-            // Incrémenter PageIndex existant
-            nextPageUrl = currentUrl.replace(/PageIndex=(\d+)/, (match, p1) => `PageIndex=${parseInt(p1) + 1}`);
-          } else {
-            // Ajouter PageIndex=2 si absent
-            nextPageUrl = `${currentUrl}${currentUrl.includes('?') ? '&' : '?'}PageIndex=2`;
+            // Essayer plusieurs sélecteurs pour "Voir plus"
+            let loadMoreBtn = await page.$('button.Article-itemListShowMore, a.Article-itemListShowMore, button[class*="ShowMore"], a[class*="ShowMore"], button[class*="loadMore"], a[class*="loadMore"]');
+
+            // Si aucun sélecteur CSS ne fonctionne, chercher par texte
+            let btnFound = !!loadMoreBtn;
+            if (!loadMoreBtn) {
+              btnFound = await page.evaluate(() => {
+                const buttons = Array.from(document.querySelectorAll('button, a'));
+                const btn = buttons.find(b => {
+                  const text = b.textContent.trim().toLowerCase();
+                  return text.includes('voir plus') || text.includes('charger plus') || text.includes('afficher plus');
+                });
+                if (btn) {
+                  btn.click();
+                  return true;
+                }
+                return false;
+              });
+            }
+
+            if (!btnFound) {
+              console.log(`      ⚠️ Bouton "Voir plus" non trouvé, plus de produits disponibles.`);
+              break;
+            }
+
+            // Cliquer et attendre chargement
+            if (loadMoreBtn) {
+              await loadMoreBtn.click();
+            }
+            await page.waitForTimeout(4000);
+
+            loadMoreClicks++;
+            console.log(`      ✓ Chargement terminé, nouveau scan...`);
+          } catch (err) {
+            console.log(`      ⚠️ Erreur "Voir plus": ${err.message}`);
+            break;
           }
-
-          await page.goto(nextPageUrl, { waitUntil: 'networkidle2', timeout: 30000 });
-          await page.waitForTimeout(2000);
-
-          loadMoreClicks++;
-          console.log(`      ✓ Page chargée`);
-
-        } catch (err) {
-          console.error(`      ✗ Erreur chargement page: ${err.message}`);
+        } else {
+          console.log(`   ⚠️ Limite clics atteinte (${loadMoreClicks}/${MAX_LOAD_MORE})`);
           break;
         }
       }

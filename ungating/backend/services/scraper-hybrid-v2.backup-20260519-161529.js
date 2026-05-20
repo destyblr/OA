@@ -67,7 +67,6 @@ class ScraperHybridV2 {
    * WORKFLOW PRINCIPAL - 3 PHASES SÉPARÉES
    */
   async runScan(scanId, maxPrice, categories, progressCallback = () => {}) {
-    this.currentScanId = scanId; // Stocker pour saveOpportunity
     const allProducts = [];
 
     // ============================================
@@ -112,12 +111,6 @@ class ScraperHybridV2 {
         const restriction = await oldScraper.checkSellerCentralWithPlaywright(product.ean);
 
         if (restriction) {
-          // MAINTENANT on sauvegarde le produit (après vérification Seller Central)
-          console.log(`   💾 Sauvegarde produit en base...`);
-          const savedProduct = await this.saveProduct(product);
-          product.id = savedProduct.id; // Ajouter l'ID pour l'opportunity
-
-          // Sauvegarder la restriction
           await this.saveRestriction(restriction);
 
           if (restriction.isRestricted) {
@@ -182,15 +175,11 @@ class ScraperHybridV2 {
       console.log(`   ✓ ${existingEANs.size} EAN en cache`);
 
       // Extraire tous les produits
-      const MIN_NEW_PRODUCTS = 20; // MINIMUM 20 nouveaux produits obligatoire
-      const MAX_LOAD_MORE = 50; // Augmenté pour chercher plus loin
+      const MAX_PRODUCTS = 200;
+      const MAX_LOAD_MORE = 15;
       let loadMoreClicks = 0;
 
-      const processedUrls = new Set(); // URLs déjà vues
-      let skipped = 0;
-
-      while (products.length < MIN_NEW_PRODUCTS && loadMoreClicks < MAX_LOAD_MORE) {
-        // Extraire liens visibles
+      while (products.length < MAX_PRODUCTS && loadMoreClicks <= MAX_LOAD_MORE) {
         const productLinks = await page.evaluate(() => {
           return Array.from(document.querySelectorAll('a.Article-title')).map(a => ({
             title: a.innerText.trim(),
@@ -198,88 +187,51 @@ class ScraperHybridV2 {
           }));
         });
 
-        console.log(`   📋 ${productLinks.length} produits visibles | ${products.length} traités | ${skipped} skippés`);
+        console.log(`   📋 ${productLinks.length} produits sur la page`);
 
-        // Filtrer les liens pas encore vus
-        const newLinks = productLinks.filter(link => !processedUrls.has(link.url));
+        // Extraire détails de chaque produit
+        for (const link of productLinks) {
+          if (products.length >= MAX_PRODUCTS) break;
 
-        if (newLinks.length === 0) {
-          console.log(`   ⚠️ Tous les produits déjà vus, clic "Voir plus"...`);
-        }
-
-        // Traiter chaque produit
-        for (const link of newLinks) {
-          if (products.length >= MIN_NEW_PRODUCTS) break;
-
-          processedUrls.add(link.url); // Marquer comme vu
-          console.log(`   → [${products.length + 1}] ${link.title.substring(0, 45)}...`);
+          console.log(`   → ${link.title.substring(0, 50)}...`);
 
           try {
             const productData = await this.getProductDetails(link.url);
 
-            if (!productData) {
+            if (productData) {
+              // Sauvegarder en DB
+              const saved = await this.saveProduct(productData);
+              products.push({ ...productData, id: saved.id });
+              console.log(`      ✓ ${productData.brand} - ${productData.price}€`);
+            } else {
               console.log(`      ✗ Données manquantes`);
-              continue;
             }
-
-            // VÉRIFIER SI EAN EXISTE DÉJÀ EN BASE
-            if (existingEANs.has(productData.ean)) {
-              console.log(`      ⏭️ SKIP: EAN ${productData.ean} déjà en base`);
-              skipped++;
-              continue;
-            }
-
-            // Nouveau produit → NE PAS SAUVEGARDER encore (attendre Seller Central)
-            products.push(productData); // Juste garder en mémoire
-            existingEANs.add(productData.ean); // Ajouter au cache temporaire
-            console.log(`      ✅ ${productData.brand} - ${productData.price}€ (EAN: ${productData.ean}) [EN ATTENTE]`);
-
           } catch (err) {
             console.error(`      ✗ Erreur: ${err.message}`);
           }
         }
 
-        // Vérifier si on a assez de nouveaux produits
-        if (products.length >= MIN_NEW_PRODUCTS) {
-          console.log(`   ✅ Objectif atteint: ${products.length} nouveaux produits`);
-          break;
-        }
+        // Cliquer "Voir plus"
+        if (products.length < MAX_PRODUCTS && loadMoreClicks < MAX_LOAD_MORE) {
+          try {
+            await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+            await page.waitForTimeout(1000);
 
-        // Aller à la page suivante (via URL PageIndex)
-        try {
-          console.log(`   📄 Page ${loadMoreClicks + 2} | ${products.length}/${MIN_NEW_PRODUCTS} nouveaux produits...`);
-
-          // Récupérer l'URL actuelle et incrémenter PageIndex
-          const currentUrl = page.url();
-          let nextPageUrl;
-
-          if (currentUrl.includes('PageIndex=')) {
-            // Incrémenter PageIndex existant
-            nextPageUrl = currentUrl.replace(/PageIndex=(\d+)/, (match, p1) => `PageIndex=${parseInt(p1) + 1}`);
-          } else {
-            // Ajouter PageIndex=2 si absent
-            nextPageUrl = `${currentUrl}${currentUrl.includes('?') ? '&' : '?'}PageIndex=2`;
+            const loadMoreBtn = await page.$('button.Article-itemListShowMore, a.Article-itemListShowMore');
+            if (loadMoreBtn) {
+              await loadMoreBtn.click();
+              await page.waitForTimeout(2000);
+              loadMoreClicks++;
+            } else {
+              break;
+            }
+          } catch {
+            break;
           }
-
-          await page.goto(nextPageUrl, { waitUntil: 'networkidle2', timeout: 30000 });
-          await page.waitForTimeout(2000);
-
-          loadMoreClicks++;
-          console.log(`      ✓ Page chargée`);
-
-        } catch (err) {
-          console.error(`      ✗ Erreur chargement page: ${err.message}`);
+        } else {
           break;
         }
       }
-
-      // Vérification finale
-      if (products.length < MIN_NEW_PRODUCTS) {
-        console.log(`\n   ⚠️ ATTENTION: Seulement ${products.length}/${MIN_NEW_PRODUCTS} nouveaux produits trouvés`);
-        console.log(`   💡 Il faudrait peut-être élargir les filtres de prix ou essayer une autre catégorie\n`);
-      }
-
-      console.log(`\n   ✅ Catégorie terminée: ${products.length} nouveaux produits | ${skipped} skippés\n`);
     } catch (err) {
       console.error(`   ❌ Erreur catégorie: ${err.message}`);
     } finally {
@@ -573,22 +525,6 @@ class ScraperHybridV2 {
   }
 
   /**
-   * Charger les EAN déjà en base (pour skip)
-   */
-  async loadExistingEANs() {
-    const { data, error } = await supabase
-      .from('products')
-      .select('ean');
-
-    if (error) {
-      console.error(`   ⚠️ Erreur chargement EAN: ${error.message}`);
-      return new Set();
-    }
-
-    return new Set(data.map(p => p.ean));
-  }
-
-  /**
    * Sauvegarder produit en DB
    */
   async saveProduct(productData) {
@@ -663,7 +599,6 @@ class ScraperHybridV2 {
       const { data, error } = await supabase
         .from('opportunities')
         .insert({
-          scan_id: this.currentScanId,
           product_id: product.id,
           restriction_id: restriction.id,
           cost_ht: costHT,

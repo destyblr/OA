@@ -422,19 +422,6 @@ class ScraperHybrid {
    */
   async checkSellerCentralWithPlaywright(ean) {
     // TIMER: Démarrer le chrono pour garantir 3 minutes minimum avant de retourner
-    const startTime = Date.now();
-    const MIN_DURATION_MS = 3 * 60 * 1000; // 3 minutes
-
-    // Fonction helper pour attendre le temps minimum restant
-    const ensureMinDuration = async () => {
-      const elapsed = Date.now() - startTime;
-      const remaining = MIN_DURATION_MS - elapsed;
-      if (remaining > 0) {
-        console.log(`      ⏰ Attente ${Math.round(remaining / 1000)}s supplémentaires pour atteindre 3 min minimum...`);
-        await new Promise(resolve => setTimeout(resolve, remaining));
-      }
-    };
-
     // Initialiser Playwright si besoin
     if (!this.playwrightContext) {
       console.log(`      🎭 Lancement Playwright avec profil séparé...`);
@@ -538,7 +525,6 @@ class ScraperHybrid {
 
       if (!asin) {
         console.log(`      ⚠️ ASIN non trouvé pour EAN ${ean}`);
-        await ensureMinDuration();
         return null;
       }
 
@@ -775,7 +761,6 @@ class ScraperHybrid {
 
       if (!selectFound) {
         console.log(`      ⚠️ PLAYWRIGHT: Dropdown ou bouton non trouvé`);
-        await ensureMinDuration();
         return null;
       }
 
@@ -855,7 +840,6 @@ class ScraperHybrid {
 
       if (!currentUrl.includes('/hz/approvalrequest/restrictions/approve')) {
         console.log(`      ⚠️ URL inattendue: ${currentUrl}`);
-        await ensureMinDuration();
         return null;
       }
 
@@ -868,19 +852,19 @@ class ScraperHybrid {
         let bonusCategory = null;
 
         // Chercher "Marque XXX en état(s)..."
-        const brandMatch = bodyText.match(/Marque\s+([^en]+?)\s+en\s+état/i);
+        const brandMatch = bodyText.match(/Marque\s+(.+?)\s+en\s+état/i);
         if (brandMatch) {
           type = 'BRAND';
           approvalText = brandMatch[1].trim();
 
           // Vérifier s'il y a aussi une catégorie (après "Marque")
-          const categoryBonusMatch = bodyText.match(/Autre\s+Catégorie\s+([^en]+?)\s+en\s+état/i);
+          const categoryBonusMatch = bodyText.match(/Autre\s+Catégorie\s+(.+?)\s+en\s+état/i);
           if (categoryBonusMatch) {
             bonusCategory = categoryBonusMatch[1].trim();
           }
         } else {
           // Sinon c'est juste une catégorie
-          const categoryMatch = bodyText.match(/Catégorie\s+([^en]+?)\s+en\s+état/i);
+          const categoryMatch = bodyText.match(/Catégorie\s+(.+?)\s+en\s+état/i);
           if (categoryMatch) {
             type = 'CATEGORY';
             approvalText = categoryMatch[1].trim();
@@ -892,7 +876,6 @@ class ScraperHybrid {
 
       if (!restrictionInfo.type) {
         console.log(`      ⚠️ Type de restriction non détecté`);
-        await ensureMinDuration();
         return null;
       }
 
@@ -975,7 +958,6 @@ class ScraperHybrid {
 
     } catch (err) {
       console.error(`      ❌ Erreur dans checkSellerCentralWithPlaywright: ${err.message}`);
-      await ensureMinDuration();
       throw err;
     }
     // NE PAS fermer la page - on la réutilise pour les produits suivants

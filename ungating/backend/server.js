@@ -52,10 +52,11 @@ const PORT = process.env.PORT || 3000;
 httpServer.listen(PORT, () => {
   console.log(`✅ Server running on http://localhost:${PORT}`);
   console.log(`✅ WebSocket server ready`);
+  console.log(`⚠️  CRON désactivé - Scan manuel uniquement`);
 
-  // Start CRON job for daily brand scanning
-  const { startDailyScan } = require('./cron/daily-brand-scan');
-  startDailyScan();
+  // CRON désactivé - scan manuel uniquement
+  // const { startDailyScan } = require('./cron/daily-brand-scan');
+  // startDailyScan();
 });
 
 module.exports = { app, io };

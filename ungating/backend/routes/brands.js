@@ -4,16 +4,61 @@ const brandFinder = require('../services/brand-finder');
 const scanTracker = require('../services/scan-tracker');
 const keepaAPI = require('../services/keepa-api');
 const supabase = require('../config/supabase');
+const fs = require('fs');
+const path = require('path');
+
+/**
+ * GET /api/brands/rotations
+ * Liste des configurations de rotation disponibles
+ */
+router.get('/rotations', (req, res) => {
+  try {
+    const rotationsPath = path.join(__dirname, '../config/rotations.json');
+    const rotations = JSON.parse(fs.readFileSync(rotationsPath, 'utf8'));
+
+    res.json({
+      success: true,
+      rotations
+    });
+  } catch (error) {
+    console.error(`❌ Error get rotations:`, error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
 
 /**
  * POST /api/brands/scan
- * Lancer un scan manuel
+ * Lancer un scan manuel avec une rotation spécifique
  */
 router.post('/scan', async (req, res) => {
   try {
-    console.log('🚀 Lancement scan manuel...');
+    const { rotationId } = req.body;
+    console.log(`🚀 Lancement scan manuel (rotation: ${rotationId || 'auto'})...`);
 
-    const result = await brandFinder.runDailyScan();
+    let result;
+
+    if (rotationId) {
+      // Charger la rotation spécifique
+      const rotationsPath = path.join(__dirname, '../config/rotations.json');
+      const rotations = JSON.parse(fs.readFileSync(rotationsPath, 'utf8'));
+      const rotation = rotations.find(r => r.id === rotationId);
+
+      if (!rotation) {
+        return res.status(400).json({
+          success: false,
+          error: `Rotation ${rotationId} introuvable`
+        });
+      }
+
+      console.log(`📋 Configuration: ${rotation.name}`);
+      result = await brandFinder.runScanWithConfig(rotation);
+    } else {
+      // Scan automatique avec rotation du jour
+      result = await brandFinder.runDailyScan();
+    }
 
     res.json({
       success: true,
