@@ -1045,10 +1045,13 @@ function App() {
       if (error) throw error;
 
       const formattedHistory = data.map(scan => {
+        // Convertir en heure locale française (Europe/Paris)
         const date = new Date(scan.scan_date);
-        const dd = String(date.getDate()).padStart(2, "0");
+        const localDate = new Date(date.toLocaleString('en-US', { timeZone: 'Europe/Paris' }));
+
+        const dd = String(localDate.getDate()).padStart(2, "0");
         const months = ["jan","fév","mar","avr","mai","juin","juil","aoû","sep","oct","nov","déc"];
-        const dateStr = `${dd} ${months[date.getMonth()]} · ${String(date.getHours()).padStart(2,"0")}:${String(date.getMinutes()).padStart(2,"0")}`;
+        const dateStr = `${dd} ${months[localDate.getMonth()]} · ${String(localDate.getHours()).padStart(2,"0")}:${String(localDate.getMinutes()).padStart(2,"0")}`;
 
         const catLabels = (scan.categories || []).map(id => CATS.find(c=>c.id===id)?.label).filter(Boolean);
         const filtersStr = `${catLabels.slice(0,2).join(", ")}${catLabels.length>2?` +${catLabels.length-2}`:""} · ≤ ${scan.max_price}€`;
