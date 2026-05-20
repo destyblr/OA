@@ -346,7 +346,7 @@ const NavItem = ({ icon, label, active, disabled, badge, href, onClick }) => {
   return content;
 };
 
-const Sidebar = () => (
+const Sidebar = ({ activeView, setActiveView }) => (
   <aside className="hidden md:flex fixed top-0 left-0 h-screen w-14 bg-white border-r border-zinc-200 flex-col z-30">
     {/* Brand */}
     <div className="h-14 grid place-items-center border-b border-zinc-200">
@@ -359,8 +359,8 @@ const Sidebar = () => (
     {/* Nav */}
     <nav className="flex-1 px-2 py-3 space-y-1">
       <NavItem icon={<I.Home size={17}/>}  label="Accueil"          disabled />
-      <NavItem icon={<I.Scan size={17}/>}  label="Ungating" active badge="LIVE" />
-      <NavItem icon={<I.Package size={17}/>}  label="ASIN Rentables" href="asin-rentables.html" badge="NEW" />
+      <NavItem icon={<I.Scan size={17}/>}  label="Ungating" active={activeView === 'ungating'} badge="LIVE" onClick={() => setActiveView('ungating')} />
+      <NavItem icon={<I.Package size={17}/>}  label="ASIN Rentables" active={activeView === 'asin-rentables'} badge="NEW" onClick={() => setActiveView('asin-rentables')} />
       <NavItem icon={<I.Clock size={17}/>} label="Historique"       disabled />
       <NavItem icon={<I.Bolt size={17}/>}  label="Opportunités"     disabled />
 
@@ -1032,8 +1032,385 @@ const HistoryTable = ({ history, onOpen }) => {
   );
 };
 
+/* ============ ASIN RENTABLES VIEW ============ */
+const AsinRentablesView = () => {
+  const [activeTab, setActiveTab] = useState('brands');
+  const [stats, setStats] = useState({});
+  const [scanHistory, setScanHistory] = useState([]);
+  const [brands, setBrands] = useState([]);
+  const [asins, setAsins] = useState([]);
+  const [filters, setFilters] = useState({
+    category: '',
+    hasFNAC: '',
+    sortBy: 'priority_score',
+    asinBrand: '',
+    asinCategory: '',
+    asinRestricted: ''
+  });
+
+  const loadStats = async () => {
+    try {
+      const res = await fetch('http://localhost:3000/api/brands/stats');
+      const data = await res.json();
+      if (data.success) setStats(data.stats);
+    } catch (error) {
+      console.error('Error loading stats:', error);
+    }
+  };
+
+  const loadScanHistory = async () => {
+    try {
+      const res = await fetch('http://localhost:3000/api/brands/scan-history?limit=10');
+      const data = await res.json();
+      if (data.success) setScanHistory(data.history);
+    } catch (error) {
+      console.error('Error loading history:', error);
+    }
+  };
+
+  const loadBrands = async () => {
+    try {
+      const params = new URLSearchParams({
+        ...(filters.category && { category: filters.category }),
+        ...(filters.hasFNAC && { hasFNAC: filters.hasFNAC }),
+        sortBy: filters.sortBy,
+        limit: 50
+      });
+      const res = await fetch(`http://localhost:3000/api/brands/opportunities?${params}`);
+      const data = await res.json();
+      if (data.success) setBrands(data.brands);
+    } catch (error) {
+      console.error('Error loading brands:', error);
+    }
+  };
+
+  const loadAsins = async () => {
+    try {
+      const params = new URLSearchParams({
+        ...(filters.asinBrand && { brand: filters.asinBrand }),
+        ...(filters.asinCategory && { category: filters.asinCategory }),
+        ...(filters.asinRestricted && { isRestricted: filters.asinRestricted }),
+        limit: 100
+      });
+      const res = await fetch(`http://localhost:3000/api/brands/asins/recent?${params}`);
+      const data = await res.json();
+      if (data.success) setAsins(data.asins);
+    } catch (error) {
+      console.error('Error loading ASINs:', error);
+    }
+  };
+
+  const scanNow = async () => {
+    try {
+      const res = await fetch('http://localhost:3000/api/brands/scan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      const data = await res.json();
+      if (data.success) {
+        alert('Scan lancé avec succès !');
+        setTimeout(() => { loadStats(); loadScanHistory(); loadBrands(); }, 2000);
+      }
+    } catch (error) {
+      alert('Erreur lors du lancement du scan');
+    }
+  };
+
+  useEffect(() => {
+    loadStats();
+    loadScanHistory();
+    loadBrands();
+  }, []);
+
+  useEffect(() => {
+    if (activeTab === 'brands') loadBrands();
+    else loadAsins();
+  }, [filters, activeTab]);
+
+  const timeAgo = (date) => {
+    const seconds = Math.floor((new Date() - new Date(date)) / 1000);
+    if (seconds < 60) return 'à l\'instant';
+    const minutes = Math.floor(seconds / 60);
+    if (minutes < 60) return `il y a ${minutes}min`;
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return `il y a ${hours}h`;
+    return `il y a ${Math.floor(hours / 24)}j`;
+  };
+
+  return (
+    <>
+      <div className="px-4 md:px-7 py-6 md:py-8">
+        <div className="flex items-center justify-between mb-8">
+          <div>
+            <h1 className="text-[28px] font-semibold tracking-[-0.025em] text-zinc-900 leading-none mb-2">🏆 ASIN Rentables</h1>
+            <p className="text-[13.5px] text-zinc-500">Scanner automatique de marques rentables Amazon</p>
+          </div>
+          <Button variant="accent" size="md" icon={<I.Bolt size={13}/>} onClick={scanNow}>
+            Scanner maintenant
+          </Button>
+        </div>
+
+        {/* Stats */}
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
+          <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4">
+            <div className="text-[11px] uppercase tracking-wider text-zinc-500 mb-1">Dernier scan</div>
+            <div className="text-[20px] font-semibold text-zinc-900">
+              {stats.lastScan ? timeAgo(stats.lastScan.scan_date) : '--'}
+            </div>
+          </div>
+          <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4">
+            <div className="text-[11px] uppercase tracking-wider text-zinc-500 mb-1">Scans aujourd'hui</div>
+            <div className="text-[20px] font-semibold text-zinc-900">{stats.scansToday || 0} / 1</div>
+          </div>
+          <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4">
+            <div className="text-[11px] uppercase tracking-wider text-zinc-500 mb-1">ASIN analysés</div>
+            <div className="text-[20px] font-semibold text-zinc-900">{stats.totalAsins?.toLocaleString() || 0}</div>
+          </div>
+          <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4">
+            <div className="text-[11px] uppercase tracking-wider text-zinc-500 mb-1">Marques trouvées</div>
+            <div className="text-[20px] font-semibold text-zinc-900">{stats.totalBrands || 0}</div>
+          </div>
+          <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4">
+            <div className="text-[11px] uppercase tracking-wider text-zinc-500 mb-1">Tokens Keepa</div>
+            <div className="text-[20px] font-semibold text-zinc-900">{stats.tokensLeft || '--'} / 1,440</div>
+          </div>
+        </div>
+
+        {/* Historique */}
+        <section className="rounded-xl border border-zinc-200 bg-white shadow-card overflow-hidden mb-8">
+          <header className="px-5 py-4 border-b border-zinc-200">
+            <h2 className="text-[15px] font-semibold tracking-[-0.01em] text-zinc-900">📜 Historique des scans</h2>
+          </header>
+          <table className="w-full">
+            <thead className="bg-zinc-50/70 border-b border-zinc-200">
+              <tr>
+                {['Date','Catégorie','ASIN','Marques','FNAC','Tokens','Durée','Statut'].map((h,i) => (
+                  <th key={i} className="px-4 py-2.5 text-left mono text-[10px] uppercase tracking-[0.15em] text-zinc-500 font-medium">{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {scanHistory.length === 0 ? (
+                <tr><td colSpan={8} className="px-4 py-8 text-center text-zinc-500">Aucun scan</td></tr>
+              ) : (
+                scanHistory.map((scan, i) => (
+                  <tr key={i} className="border-b border-zinc-150">
+                    <td className="px-4 py-3 text-[13px]">{new Date(scan.scan_date).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</td>
+                    <td className="px-4 py-3 text-[13px] font-medium">{scan.category}</td>
+                    <td className="px-4 py-3 text-[13px]">{scan.asins_found || 0}</td>
+                    <td className="px-4 py-3 text-[13px] font-semibold text-emerald-600">{scan.brands_found || 0}</td>
+                    <td className="px-4 py-3 text-[13px]">{scan.brands_with_fnac || 0}</td>
+                    <td className="px-4 py-3 text-[13px]">{scan.tokens_used || 0}</td>
+                    <td className="px-4 py-3 text-[13px]">{scan.duration_seconds || 0}s</td>
+                    <td className="px-4 py-3">
+                      <Badge tone={scan.status === 'completed' ? 'green' : scan.status === 'running' ? 'blue' : 'amber'}>
+                        {scan.status === 'completed' ? 'Terminé' : scan.status === 'running' ? 'En cours' : 'Échoué'}
+                      </Badge>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </section>
+
+        {/* Tabs */}
+        <div className="flex gap-4 mb-6 border-b border-zinc-200">
+          <button
+            onClick={() => setActiveTab('brands')}
+            className={cn(
+              "px-4 py-2 font-semibold border-b-2 transition-colors",
+              activeTab === 'brands' ? "border-cobalt-500 text-cobalt-600" : "border-transparent text-zinc-600 hover:text-zinc-900"
+            )}>
+            🏷️ Marques
+          </button>
+          <button
+            onClick={() => setActiveTab('asins')}
+            className={cn(
+              "px-4 py-2 font-semibold border-b-2 transition-colors",
+              activeTab === 'asins' ? "border-cobalt-500 text-cobalt-600" : "border-transparent text-zinc-600 hover:text-zinc-900"
+            )}>
+            📦 ASIN récents
+          </button>
+        </div>
+
+        {/* Content Brands */}
+        {activeTab === 'brands' && (
+          <div>
+            <div className="flex items-center gap-4 mb-4">
+              <select
+                value={filters.category}
+                onChange={(e) => setFilters({...filters, category: e.target.value})}
+                className="px-4 py-2 border border-zinc-200 rounded-lg text-[13px] focus:outline-none focus:ring-2 focus:ring-cobalt-500">
+                <option value="">Toutes catégories</option>
+                <option value="Baby">Baby</option>
+                <option value="Pet">Pet</option>
+                <option value="Beauty">Beauty</option>
+                <option value="Grocery">Grocery</option>
+              </select>
+              <select
+                value={filters.hasFNAC}
+                onChange={(e) => setFilters({...filters, hasFNAC: e.target.value})}
+                className="px-4 py-2 border border-zinc-200 rounded-lg text-[13px] focus:outline-none focus:ring-2 focus:ring-cobalt-500">
+                <option value="">Toutes</option>
+                <option value="true">Avec FNAC</option>
+                <option value="false">Sans FNAC</option>
+              </select>
+              <select
+                value={filters.sortBy}
+                onChange={(e) => setFilters({...filters, sortBy: e.target.value})}
+                className="px-4 py-2 border border-zinc-200 rounded-lg text-[13px] focus:outline-none focus:ring-2 focus:ring-cobalt-500">
+                <option value="priority_score">Score</option>
+                <option value="avg_bsr">BSR</option>
+                <option value="roi_percentage">ROI</option>
+                <option value="discovered_at">Date découverte</option>
+              </select>
+              <div className="text-[13px] text-zinc-600">{brands.length} marques</div>
+            </div>
+            <div className="space-y-4">
+              {brands.length === 0 ? (
+                <div className="text-center py-12 text-zinc-500">Aucune marque trouvée</div>
+              ) : (
+                brands.map((brand, i) => (
+                  <div key={i} className="border border-zinc-200 rounded-xl p-5 bg-white hover:border-cobalt-500 hover:shadow-lg transition-all">
+                    <div className="flex items-start justify-between mb-4">
+                      <div>
+                        <h3 className="text-[18px] font-bold text-zinc-900 mb-1">{brand.brand}</h3>
+                        <span className="text-[13px] text-zinc-500">{brand.category}</span>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-[28px] font-bold text-cobalt-600">{brand.priority_score}/100</div>
+                        <div className="text-[11px] text-zinc-500">Score</div>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+                      <div>
+                        <div className="text-[11px] text-zinc-500">Produits Amazon</div>
+                        <div className="font-semibold text-[14px]">{brand.nb_products_amazon}</div>
+                      </div>
+                      <div>
+                        <div className="text-[11px] text-zinc-500">BSR moyen</div>
+                        <div className="font-semibold text-[14px]">{brand.avg_bsr?.toLocaleString()}</div>
+                      </div>
+                      <div>
+                        <div className="text-[11px] text-zinc-500">Prix Amazon</div>
+                        <div className="font-semibold text-[14px]">{brand.avg_price_amazon?.toFixed(2)}€</div>
+                      </div>
+                      <div>
+                        <div className="text-[11px] text-zinc-500">ROI</div>
+                        <div className="font-semibold text-[14px] text-emerald-600">{brand.roi_percentage?.toFixed(1)}%</div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      {brand.is_restricted ? (
+                        <Badge tone="amber">Restreint {brand.restriction_type}</Badge>
+                      ) : (
+                        <Badge tone="green">Non restreint</Badge>
+                      )}
+                      {brand.nb_products_fnac > 0 ? (
+                        <Badge tone="green">✅ {brand.nb_products_fnac} produits FNAC</Badge>
+                      ) : (
+                        <Badge tone="amber">❌ Pas sur FNAC</Badge>
+                      )}
+                      {brand.payback_days && (
+                        <Badge tone="blue">Payback {brand.payback_days}j</Badge>
+                      )}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Content ASINs */}
+        {activeTab === 'asins' && (
+          <div>
+            <div className="flex items-center gap-4 mb-4">
+              <input
+                type="text"
+                placeholder="Filtrer par marque..."
+                value={filters.asinBrand}
+                onChange={(e) => setFilters({...filters, asinBrand: e.target.value})}
+                className="px-4 py-2 border border-zinc-200 rounded-lg text-[13px] focus:outline-none focus:ring-2 focus:ring-cobalt-500"
+              />
+              <select
+                value={filters.asinCategory}
+                onChange={(e) => setFilters({...filters, asinCategory: e.target.value})}
+                className="px-4 py-2 border border-zinc-200 rounded-lg text-[13px] focus:outline-none focus:ring-2 focus:ring-cobalt-500">
+                <option value="">Toutes catégories</option>
+                <option value="Baby">Baby</option>
+                <option value="Pet">Pet</option>
+                <option value="Beauty">Beauty</option>
+                <option value="Grocery">Grocery</option>
+              </select>
+              <select
+                value={filters.asinRestricted}
+                onChange={(e) => setFilters({...filters, asinRestricted: e.target.value})}
+                className="px-4 py-2 border border-zinc-200 rounded-lg text-[13px] focus:outline-none focus:ring-2 focus:ring-cobalt-500">
+                <option value="">Tous</option>
+                <option value="true">Restreints</option>
+                <option value="false">Non restreints</option>
+              </select>
+              <Button variant="accent" size="sm" icon={<I.Filter size={12}/>} onClick={loadAsins}>Filtrer</Button>
+              <div className="text-[13px] text-zinc-600">{asins.length} ASIN</div>
+            </div>
+            <section className="rounded-xl border border-zinc-200 bg-white shadow-card overflow-hidden">
+              <table className="w-full">
+                <thead className="bg-zinc-50/70 border-b border-zinc-200">
+                  <tr>
+                    {['Image','ASIN','Marque','Titre','BSR','Prix','Rating','Restreint','Date'].map((h,i) => (
+                      <th key={i} className="px-4 py-2.5 text-left mono text-[10px] uppercase tracking-[0.15em] text-zinc-500 font-medium">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {asins.length === 0 ? (
+                    <tr><td colSpan={9} className="px-4 py-8 text-center text-zinc-500">Aucun ASIN</td></tr>
+                  ) : (
+                    asins.map((asin, i) => (
+                      <tr key={i} className="border-b border-zinc-150">
+                        <td className="px-4 py-3">
+                          {asin.image_url ? (
+                            <img src={asin.image_url} alt="" className="w-12 h-12 object-cover rounded" />
+                          ) : (
+                            <div className="w-12 h-12 bg-zinc-100 rounded"/>
+                          )}
+                        </td>
+                        <td className="px-4 py-3">
+                          <a href={`https://www.amazon.fr/dp/${asin.asin}`} target="_blank" rel="noopener" className="mono text-[12px] text-cobalt-600 hover:underline">
+                            {asin.asin}
+                          </a>
+                        </td>
+                        <td className="px-4 py-3 text-[13px] font-medium">{asin.brand}</td>
+                        <td className="px-4 py-3 text-[13px] truncate max-w-[200px]">{asin.title}</td>
+                        <td className="px-4 py-3 text-[13px]">{asin.bsr?.toLocaleString()}</td>
+                        <td className="px-4 py-3 text-[13px]">{asin.price_amazon?.toFixed(2)}€</td>
+                        <td className="px-4 py-3"><Stars value={Math.floor(asin.rating || 0)} size={10}/></td>
+                        <td className="px-4 py-3">
+                          {asin.is_restricted ? (
+                            <Badge tone="amber">{asin.restriction_type}</Badge>
+                          ) : (
+                            <Badge tone="green">Non</Badge>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 text-[12px] text-zinc-500">{timeAgo(asin.discovered_at)}</td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </section>
+          </div>
+        )}
+      </div>
+    </>
+  );
+};
+
 /* ============ PAGE ============ */
 function App() {
+  const [activeView, setActiveView] = useState('ungating');
   const [form, setForm] = useState({ maxPrice: 20, cats:["beauty","grocery","health","baby"] });
   const [scanning, setScanning] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -1248,17 +1625,23 @@ function App() {
   useEffect(()=> () => ref.current && clearInterval(ref.current), []);
 
   return (
-    <div className="flex md:pl-14" data-screen-label="Ungating">
-      <Sidebar/>
+    <div className="flex md:pl-14" data-screen-label={activeView === 'ungating' ? 'Ungating' : 'ASIN Rentables'}>
+      <Sidebar activeView={activeView} setActiveView={setActiveView}/>
       <main className="flex-1 min-w-0">
-        <Topbar onRun={start} scanning={scanning} onRefresh={loadResultsFromSupabase} loading={loading}/>
-        <PageHero results={results}/>
-        <div className="px-4 md:px-7 pb-10 space-y-6">
-          <QuickLaunchCards/>
-          <PipelineCard progress={progress} scanning={scanning}/>
-          <ResultsTable rows={results} openedScan={openedScan} onCloseScan={closeScan}/>
-          <HistoryTable history={history} onOpen={openScan}/>
-        </div>
+        {activeView === 'ungating' ? (
+          <>
+            <Topbar onRun={start} scanning={scanning} onRefresh={loadResultsFromSupabase} loading={loading}/>
+            <PageHero results={results}/>
+            <div className="px-4 md:px-7 pb-10 space-y-6">
+              <QuickLaunchCards/>
+              <PipelineCard progress={progress} scanning={scanning}/>
+              <ResultsTable rows={results} openedScan={openedScan} onCloseScan={closeScan}/>
+              <HistoryTable history={history} onOpen={openScan}/>
+            </div>
+          </>
+        ) : (
+          <AsinRentablesView/>
+        )}
 
         <footer className="border-t border-zinc-200 px-4 md:px-7 py-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 text-[11.5px] text-zinc-500">
           <span>© 2026 OA · Open Arbitrage</span>
