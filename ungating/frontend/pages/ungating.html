@@ -231,6 +231,7 @@ const I = {
   Ext:     (p)=> <Icon {...p}><path d="M14 4h6v6"/><path d="M10 14L21 3"/><path d="M21 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5"/></Icon>,
   More:    (p)=> <Icon {...p}><circle cx="5" cy="12" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="19" cy="12" r="1.2"/></Icon>,
   Filter:  (p)=> <Icon {...p}><path d="M3 5h18l-7 9v6l-4-2v-4z"/></Icon>,
+  Package: (p)=> <Icon {...p}><path d="M3 9h18v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9z"/><path d="M3 9L12 3l9 6"/><path d="M12 3v9"/></Icon>,
 };
 
 /* ============ DATA ============ */
@@ -314,28 +315,36 @@ const SectionTitle = ({ kicker, title, action }) => (
 );
 
 /* ============ SIDEBAR ============ */
-const NavItem = ({ icon, label, active, disabled, badge }) => (
-  <div className="relative group/item">
-    <button disabled={disabled} className={cn(
-      "w-full flex items-center justify-center h-10 rounded-lg transition-colors relative",
-      active && "bg-zinc-900 text-white",
-      !active && !disabled && "text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900",
-      disabled && "text-zinc-300 cursor-not-allowed hover:bg-transparent"
-    )}>
-      {icon}
-      {active && badge && (
-        <span className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-cobalt-500"/>
-      )}
-    </button>
-    {/* Tooltip */}
-    <div className="absolute left-[calc(100%+12px)] top-1/2 -translate-y-1/2 z-40 px-2.5 h-7 rounded-md bg-zinc-900 text-white text-[12px] font-medium flex items-center gap-2 opacity-0 invisible group-hover/item:opacity-100 group-hover/item:visible transition-all duration-100 pointer-events-none whitespace-nowrap shadow-card-md">
-      {label}
-      {disabled && <span className="mono text-[9.5px] uppercase tracking-wider text-zinc-400">soon</span>}
-      {badge && !disabled && <Badge tone="dark" className="!h-[16px] !px-1 !text-[9.5px] !font-semibold !rounded-sm !bg-cobalt-500 !text-white !border-cobalt-500">{badge}</Badge>}
-      <span className="absolute -left-1 top-1/2 -translate-y-1/2 w-2 h-2 bg-zinc-900 rotate-45"/>
+const NavItem = ({ icon, label, active, disabled, badge, href, onClick }) => {
+  const content = (
+    <div className="relative group/item">
+      <button disabled={disabled} onClick={onClick} className={cn(
+        "w-full flex items-center justify-center h-10 rounded-lg transition-colors relative",
+        active && "bg-zinc-900 text-white",
+        !active && !disabled && "text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900",
+        disabled && "text-zinc-300 cursor-not-allowed hover:bg-transparent"
+      )}>
+        {icon}
+        {active && badge && (
+          <span className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-cobalt-500"/>
+        )}
+      </button>
+      {/* Tooltip */}
+      <div className="absolute left-[calc(100%+12px)] top-1/2 -translate-y-1/2 z-40 px-2.5 h-7 rounded-md bg-zinc-900 text-white text-[12px] font-medium flex items-center gap-2 opacity-0 invisible group-hover/item:opacity-100 group-hover/item:visible transition-all duration-100 pointer-events-none whitespace-nowrap shadow-card-md">
+        {label}
+        {disabled && <span className="mono text-[9.5px] uppercase tracking-wider text-zinc-400">soon</span>}
+        {badge && !disabled && <Badge tone="dark" className="!h-[16px] !px-1 !text-[9.5px] !font-semibold !rounded-sm !bg-cobalt-500 !text-white !border-cobalt-500">{badge}</Badge>}
+        <span className="absolute -left-1 top-1/2 -translate-y-1/2 w-2 h-2 bg-zinc-900 rotate-45"/>
+      </div>
     </div>
-  </div>
-);
+  );
+
+  if (href && !disabled) {
+    return <a href={href}>{content}</a>;
+  }
+
+  return content;
+};
 
 const Sidebar = () => (
   <aside className="hidden md:flex fixed top-0 left-0 h-screen w-14 bg-white border-r border-zinc-200 flex-col z-30">
@@ -351,6 +360,7 @@ const Sidebar = () => (
     <nav className="flex-1 px-2 py-3 space-y-1">
       <NavItem icon={<I.Home size={17}/>}  label="Accueil"          disabled />
       <NavItem icon={<I.Scan size={17}/>}  label="Ungating" active badge="LIVE" />
+      <NavItem icon={<I.Package size={17}/>}  label="ASIN Rentables" href="asin-rentables.html" badge="NEW" />
       <NavItem icon={<I.Clock size={17}/>} label="Historique"       disabled />
       <NavItem icon={<I.Bolt size={17}/>}  label="Opportunités"     disabled />
 

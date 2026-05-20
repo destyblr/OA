@@ -20,7 +20,9 @@ app.use(express.static('public'));
 
 // Routes
 const ungatingRoutes = require('./routes/ungating');
+const brandsRoutes = require('./routes/brands');
 app.use('/api/ungating', ungatingRoutes);
+app.use('/api/brands', brandsRoutes);
 
 // WebSocket
 io.on('connection', (socket) => {
@@ -50,6 +52,10 @@ const PORT = process.env.PORT || 3000;
 httpServer.listen(PORT, () => {
   console.log(`✅ Server running on http://localhost:${PORT}`);
   console.log(`✅ WebSocket server ready`);
+
+  // Start CRON job for daily brand scanning
+  const { startDailyScan } = require('./cron/daily-brand-scan');
+  startDailyScan();
 });
 
 module.exports = { app, io };
