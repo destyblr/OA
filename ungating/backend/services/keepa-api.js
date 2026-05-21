@@ -30,28 +30,22 @@ class KeepaAPI {
         sortBy = 'current_SALES'
       } = filters;
 
-      // Construction de la requête Keepa
+      // Construction de la requête Keepa (format correct avec _gte/_lte)
       const selection = {
-        // Filtre BSR
-        current_SALES: bsrRange,
-        drops30_SALES: 3, // Au moins 3 ventes dans le mois
+        // Filtre BSR (Sales Rank)
+        current_SALES_gte: bsrRange[0],
+        current_SALES_lte: bsrRange[1],
 
-        // Filtre Prix
-        current_AMAZON: priceRange,
+        // Filtre Prix Buy Box
+        current_BUY_BOX_SHIPPING_gte: priceRange[0],
+        current_BUY_BOX_SHIPPING_lte: priceRange[1],
 
-        // Filtre Reviews
-        current_RATING: [minRating, 500],
-        current_COUNT_REVIEWS: [20, 99999],
+        // Filtre Vendeurs FBA
+        current_COUNT_NEW_FBA_gte: 0,
+        current_COUNT_NEW_FBA_lte: maxSellers,
 
-        // Filtre Vendeurs
-        current_COUNT_NEW: [1, maxSellers],
-        current_COUNT_USED: [0, 0], // Pas de vendeurs occasion
-
-        // Amazon présent ou non
-        ...(excludeAmazon && { has_AMAZON: false }),
-
-        // Stock
-        outOfStockPercentage30: [0, 20],
+        // Type de produit (0 = standard)
+        productType: ['0'],
 
         // Catégorie
         ...(category && { rootCategory: this.getCategoryId(category) })
@@ -62,7 +56,7 @@ class KeepaAPI {
         domain: this.domain,
         selection: JSON.stringify(selection),
         sort: JSON.stringify([[sortBy, 'asc']]),
-        page,
+        page: page - 1, // Keepa commence à 0, pas à 1
         perPage
       };
 
