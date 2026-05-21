@@ -141,17 +141,18 @@ class KeepaAPI {
    */
   getCategoryId(category) {
     const categoryMap = {
-      // Amazon.fr (domain 4) - IDs CORRECTS
-      'Bébé': 322086011,  // Jeux et Jouets
-      'Animaux': 340855031,  // Animalerie (à vérifier)
-      'Beauté': 197858031,   // Beauté et Parfum (à vérifier)
-      'Épicerie': 3581681,   // Épicerie (à vérifier)
+      // Amazon.fr (domain 4) - IDs KEEPA OFFICIELS
+      'Bébé': 2404509,       // Bébé et Puériculture
+      'Animaux': 5975310,    // Animalerie
+      'Beauté': 5543023,     // Beauté et Parfum
+      'Épicerie': 870931,    // Épicerie
+      'Jouets': 5213591,     // Jeux et Jouets
       // Anglais (legacy)
-      'Baby': 322086011,
-      'Pet': 340855031,
-      'Beauty': 197858031,
-      'Grocery': 3581681,
-      'Toys': 322086011
+      'Baby': 2404509,
+      'Pet': 5975310,
+      'Beauty': 5543023,
+      'Grocery': 870931,
+      'Toys': 5213591
     };
 
     return categoryMap[category] || null;
