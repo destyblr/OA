@@ -40,14 +40,12 @@ class KeepaAPI {
         current_BUY_BOX_SHIPPING_gte: priceRange[0],
         current_BUY_BOX_SHIPPING_lte: priceRange[1],
 
-        // Filtre Vendeurs FBA - DÉSACTIVÉ car ne fonctionne pas pour domain=4
-        // On filtre côté code dans brand-finder.js Phase 2d
-        // current_COUNT_NEW_FBA_gte: 0,
-        // current_COUNT_NEW_FBA_lte: maxSellers,
+        // Filtre Vendeurs FBA
+        current_COUNT_NEW_FBA_gte: 0,
+        current_COUNT_NEW_FBA_lte: maxSellers,
 
-        // Exclure Amazon comme vendeur - DÉSACTIVÉ pour test
-        // On filtre côté code dans brand-finder.js Phase 2c
-        // ...(excludeAmazon && { current_AMAZON: -1 }),
+        // Exclure Amazon comme vendeur
+        ...(excludeAmazon && { current_AMAZON: -1 }),
 
         // Type de produit (0 = standard)
         productType: ['0'],
