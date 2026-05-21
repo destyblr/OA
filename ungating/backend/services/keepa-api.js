@@ -174,18 +174,18 @@ class KeepaAPI {
         // Si un seul ASIN, retourner un objet
         if (response.data.products.length === 1) {
           const p = response.data.products[0];
-          const hasPrice = p.stats?.current[0] && p.stats.current[0] > 0;
+          const hasPrice = p.stats?.current[1] && p.stats.current[1] > 0;
           return {
             asin: p.asin,
             brand: p.brand || 'Unknown',
             title: p.title || '',
-            bsr: p.stats?.current[3] > 0 ? p.stats.current[3] : null,
-            price: hasPrice ? p.stats.current[0] / 100 : null,
+            bsr: p.stats?.current[4] > 0 ? p.stats.current[4] : null,
+            price: hasPrice ? p.stats.current[1] / 100 : null,
             priceNote: !hasPrice ? 'Prix Amazon non disponible' : null,
-            rating: (p.stats?.current[16] && p.stats.current[16] > 0) ? p.stats.current[16] / 10 : null,
-            reviewCount: (p.stats?.current[17] && p.stats.current[17] >= 0) ? p.stats.current[17] : 0,
-            sellerCount: (p.stats?.current[6] && p.stats.current[6] >= 0) ? p.stats.current[6] : 0,
-            amazonPresent: p.stats?.current[0] > 0,
+            rating: (p.stats?.current[11] && p.stats.current[11] > 0) ? p.stats.current[11] / 20 : null,
+            reviewCount: (p.stats?.current[34] && p.stats.current[34] > 0) ? p.stats.current[34] : 0,
+            sellerCount: (p.stats?.current[35] && p.stats.current[35] > 0) ? p.stats.current[35] : 0,
+            amazonPresent: p.stats?.current[3] === 1,
             imageUrl: p.imagesCSV ? `https://images-na.ssl-images-amazon.com/images/I/${p.imagesCSV.split(',')[0]}` : null,
             tokensConsumed: response.data.tokensConsumed || 1
           };
@@ -193,18 +193,18 @@ class KeepaAPI {
 
         // Si plusieurs ASIN, retourner un tableau
         return response.data.products.map(p => {
-          const hasPrice = p.stats?.current[0] && p.stats.current[0] > 0;
+          const hasPrice = p.stats?.current[1] && p.stats.current[1] > 0;
           return {
             asin: p.asin,
             brand: p.brand || 'Unknown',
             title: p.title || '',
-            bsr: p.stats?.current[3] > 0 ? p.stats.current[3] : null,
-            price: hasPrice ? p.stats.current[0] / 100 : null,
+            bsr: p.stats?.current[4] > 0 ? p.stats.current[4] : null,
+            price: hasPrice ? p.stats.current[1] / 100 : null,
             priceNote: !hasPrice ? 'Prix Amazon non disponible' : null,
-            rating: (p.stats?.current[16] && p.stats.current[16] > 0) ? p.stats.current[16] / 10 : null,
-            reviewCount: (p.stats?.current[17] && p.stats.current[17] >= 0) ? p.stats.current[17] : 0,
-            sellerCount: (p.stats?.current[6] && p.stats.current[6] >= 0) ? p.stats.current[6] : 0,
-            amazonPresent: p.stats?.current[0] > 0,
+            rating: (p.stats?.current[11] && p.stats.current[11] > 0) ? p.stats.current[11] / 20 : null,
+            reviewCount: (p.stats?.current[34] && p.stats.current[34] > 0) ? p.stats.current[34] : 0,
+            sellerCount: (p.stats?.current[35] && p.stats.current[35] > 0) ? p.stats.current[35] : 0,
+            amazonPresent: p.stats?.current[3] === 1,
             imageUrl: p.imagesCSV ? `https://images-na.ssl-images-amazon.com/images/I/${p.imagesCSV.split(',')[0]}` : null
           };
         });

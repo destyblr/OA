@@ -147,6 +147,29 @@ class BrandFinder {
 
       console.log(`   ✅ ${products.length} ASIN après filtre Private Label\n`);
 
+      // Étape 2c : Filtrer Amazon présent comme vendeur
+      console.log('🛒 Étape 2c : Filtre Amazon présent\n');
+      products = products.filter(p => {
+        if (p.amazonPresent) {
+          console.log(`   ❌ SKIP ${p.asin} : Amazon est vendeur`);
+        }
+        return !p.amazonPresent;
+      });
+
+      console.log(`   ✅ ${products.length} ASIN après filtre Amazon\n`);
+
+      // Étape 2d : Filtrer par nombre de vendeurs (max 5)
+      console.log('👥 Étape 2d : Filtre nombre de vendeurs (max 5)\n');
+      products = products.filter(p => {
+        const tooManySellers = p.sellerCount > 5;
+        if (tooManySellers) {
+          console.log(`   ❌ SKIP ${p.asin} : Trop de vendeurs (${p.sellerCount})`);
+        }
+        return !tooManySellers;
+      });
+
+      console.log(`   ✅ ${products.length} ASIN après filtre vendeurs\n`);
+
       // Étape 3 : SP-API - Récupérer infos détaillées
       console.log('📦 Étape 3 : SP-API - Infos produits\n');
       for (let i = 0; i < products.length; i++) {
