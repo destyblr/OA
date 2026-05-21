@@ -45,8 +45,9 @@ class KeepaAPI {
         // current_COUNT_NEW_FBA_gte: 0,
         // current_COUNT_NEW_FBA_lte: maxSellers,
 
-        // Exclure Amazon comme vendeur
-        ...(excludeAmazon && { current_AMAZON: -1 }),
+        // Exclure Amazon comme vendeur - DÉSACTIVÉ pour test
+        // On filtre côté code dans brand-finder.js Phase 2c
+        // ...(excludeAmazon && { current_AMAZON: -1 }),
 
         // Type de produit (0 = standard)
         productType: ['0'],
@@ -140,17 +141,17 @@ class KeepaAPI {
    */
   getCategoryId(category) {
     const categoryMap = {
-      // Français
-      'Bébé': 1063252,
-      'Animaux': 11273704031,
-      'Beauté': 64257031,
-      'Épicerie': 10925051,
+      // Amazon.fr (domain 4) - IDs CORRECTS
+      'Bébé': 322086011,  // Jeux et Jouets
+      'Animaux': 340855031,  // Animalerie (à vérifier)
+      'Beauté': 197858031,   // Beauté et Parfum (à vérifier)
+      'Épicerie': 3581681,   // Épicerie (à vérifier)
       // Anglais (legacy)
-      'Baby': 1063252,
-      'Pet': 11273704031,
-      'Beauty': 64257031,
-      'Grocery': 10925051,
-      'Toys': 547082
+      'Baby': 322086011,
+      'Pet': 340855031,
+      'Beauty': 197858031,
+      'Grocery': 3581681,
+      'Toys': 322086011
     };
 
     return categoryMap[category] || null;
