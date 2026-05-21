@@ -7,36 +7,16 @@ echo   SCAN : Bebe - BSR Bas (1-10K)
 echo ========================================
 echo.
 
-REM Verifier si le serveur tourne
-echo [1/3] Verification du serveur...
-curl -s http://localhost:3000/health >nul 2>&1
+REM Aller dans le dossier backend
+cd /d "%~dp0\..\backend"
 
-if %ERRORLEVEL% NEQ 0 (
-    echo   ^> Serveur non detecte
-    echo [2/3] Demarrage du serveur...
-    cd /d "%~dp0\..\backend"
-    start "OA Server" cmd /k "npm start"
-    echo   ^> Attente 10 secondes pour le demarrage...
-    timeout /t 10 /nobreak
-    cd /d "%~dp0"
-) else (
-    echo   ^> Serveur deja actif
-)
+REM Lancer le scan directement (tout s'affiche ici)
+node run-scan.js bebe-bsr-bas
 
-echo [3/3] Lancement du scan...
-echo.
-
-REM Lancer le scan et afficher la reponse complete
-curl -X POST http://localhost:3000/api/brands/scan -H "Content-Type: application/json" -d "{\"rotationId\": \"bebe-bsr-bas\"}"
-
-echo.
 echo.
 echo ========================================
-echo   SCAN TERMINE
+echo   FIN
 echo ========================================
-echo.
-echo Consulte les logs du serveur dans la fenetre "OA Server"
-echo Dashboard: http://localhost:3000/pages/ungating.html
 echo.
 echo Appuyez sur une touche pour fermer...
 pause >nul
