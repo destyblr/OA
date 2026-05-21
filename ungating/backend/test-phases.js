@@ -66,6 +66,16 @@ async function testAllPhases() {
 
   console.log(`   ✅ ${rawProducts.length} produits récupérés\n`);
 
+  // DEBUG: Afficher les données du premier produit
+  console.log('🔍 DEBUG: Premier produit:');
+  console.log(`   ASIN: ${rawProducts[0].asin}`);
+  console.log(`   Title: ${rawProducts[0].title}`);
+  console.log(`   Rating: ${rawProducts[0].rating}`);
+  console.log(`   Review Count: ${rawProducts[0].reviewCount}`);
+  console.log(`   Seller Count: ${rawProducts[0].sellerCount}`);
+  console.log(`   BSR: ${rawProducts[0].bsr}`);
+  console.log(`   Price: ${rawProducts[0].price}€\n`);
+
   // Phase 2: Filtre Hazmat
   console.log('⚠️  Phase 2 : Filtre Hazmat (mots-clés)\n');
   let products = rawProducts.filter(p => {
