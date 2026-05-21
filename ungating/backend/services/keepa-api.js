@@ -10,7 +10,7 @@ const KEEPA_BASE_URL = 'https://api.keepa.com';
 class KeepaAPI {
   constructor() {
     this.apiKey = KEEPA_API_KEY;
-    this.domain = 8; // Amazon.fr
+    this.domain = 4; // Amazon.fr (France)
   }
 
   /**
