@@ -1423,7 +1423,6 @@ const AsinRentablesView = () => {
                     <th className="px-4 py-2.5 text-left mono text-[10px] uppercase tracking-[0.15em] text-zinc-500 font-medium cursor-help" title="Nombre de fois où le BSR a baissé = ventes sur 30 jours">Drops 30j</th>
                     <th className="px-4 py-2.5 text-left mono text-[10px] uppercase tracking-[0.15em] text-zinc-500 font-medium">Prix</th>
                     <th className="px-4 py-2.5 text-left mono text-[10px] uppercase tracking-[0.15em] text-zinc-500 font-medium">Rating</th>
-                    <th className="px-4 py-2.5 text-left mono text-[10px] uppercase tracking-[0.15em] text-zinc-500 font-medium">Reviews</th>
                     <th className="px-4 py-2.5 text-left mono text-[10px] uppercase tracking-[0.15em] text-zinc-500 font-medium">Vendeurs</th>
                     <th className="px-4 py-2.5 text-left mono text-[10px] uppercase tracking-[0.15em] text-zinc-500 font-medium">AMZ</th>
                     <th className="px-4 py-2.5 text-left mono text-[10px] uppercase tracking-[0.15em] text-zinc-500 font-medium">Restreint</th>
@@ -1432,7 +1431,7 @@ const AsinRentablesView = () => {
                 </thead>
                 <tbody>
                   {sortedAsins.length === 0 ? (
-                    <tr><td colSpan={12} className="px-4 py-8 text-center text-zinc-500">Aucun ASIN</td></tr>
+                    <tr><td colSpan={11} className="px-4 py-8 text-center text-zinc-500">Aucun ASIN</td></tr>
                   ) : (
                     paginatedAsins.map((asin, i) => (
                       <tr key={i} className="border-b border-zinc-150">
@@ -1466,13 +1465,6 @@ const AsinRentablesView = () => {
                               <Stars value={Math.floor(asin.rating)} size={10}/>
                               <span className="text-[11px] text-zinc-500">({asin.rating.toFixed(1)})</span>
                             </div>
-                          ) : (
-                            <span className="text-zinc-400">--</span>
-                          )}
-                        </td>
-                        <td className="px-4 py-3 text-[13px]">
-                          {asin.review_count ? (
-                            <span className={asin.review_count > 1000 ? 'text-emerald-600 font-medium' : ''}>{asin.review_count.toLocaleString()}</span>
                           ) : (
                             <span className="text-zinc-400">--</span>
                           )}
@@ -1678,8 +1670,34 @@ function App() {
         });
       }
 
-      // 3. Transformer et recalculer avec brand_requirements
-      const formattedResults = data.map(opp => {
+      // 3. FILTRER LES MÉDIAS (livres, CD, DVD, magazines)
+      const filteredData = data.filter(opp => {
+        const title = (opp.products.title || '').toLowerCase();
+        const brand = (opp.products.brand || '').toLowerCase();
+        const ean = opp.products.ean || '';
+
+        // Livres (ISBN)
+        if (ean.startsWith('978') || ean.startsWith('979')) return false;
+
+        // CD/Musique
+        const musicKeywords = ['cd ', ' cd', 'album', 'vinyle', 'vinyl', 'disque', 'compilation', 'soundtrack', 'bande originale'];
+        if (musicKeywords.some(kw => title.includes(kw))) return false;
+
+        // DVD/Vidéo
+        const videoKeywords = ['dvd', 'blu-ray', 'bluray', 'film', 'movie', 'série', 'series', 'coffret', 'saison'];
+        if (videoKeywords.some(kw => title.includes(kw))) return false;
+
+        // Magazines/Presse
+        const pressKeywords = ['magazine', 'revue', 'hors-série', 'mensuel', 'hebdo', 'journal', 'numéro', 'n°'];
+        const pressBrands = ['grazia', 'elle', 'marie claire', 'vogue', 'gala', 'closer'];
+        if (pressKeywords.some(kw => title.includes(kw) || brand.includes(kw))) return false;
+        if (pressBrands.some(b => brand.includes(b))) return false;
+
+        return true; // Produit physique valide
+      });
+
+      // 4. Transformer et recalculer avec brand_requirements
+      const formattedResults = filteredData.map(opp => {
         const brandName = opp.restrictions.approval_text?.toUpperCase() || '';
         const manualUnits = brandRequirementsMap[brandName];
         const units = manualUnits || opp.restrictions.units_required || 1;
