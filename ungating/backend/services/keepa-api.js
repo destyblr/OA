@@ -126,6 +126,12 @@ class KeepaAPI {
    */
   getCategoryId(category) {
     const categoryMap = {
+      // Français
+      'Bébé': 1063252,
+      'Animaux': 11273704031,
+      'Beauté': 3760911,
+      'Épicerie': 9699053031,
+      // Anglais (legacy)
       'Baby': 1063252,
       'Pet': 11273704031,
       'Beauty': 3760911,
