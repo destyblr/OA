@@ -31,15 +31,14 @@ async function testTokens() {
   }
 }
 
-// Test 2: Product Finder simple
+// Test 2: Product Finder SANS catégorie
 async function testProductFinder() {
   try {
-    console.log('🔍 Test 2: Product Finder (Bébé, simple)...');
+    console.log('🔍 Test 2: Product Finder (SANS catégorie - test général)...');
 
     const selection = {
-      rootCategory: 1063252, // Baby
-      current_SALES: [1, 50000], // BSR très large
-      current_AMAZON: [1000, 10000] // Prix 10-100€
+      current_SALES: [1, 10000], // BSR 1-10000
+      current_AMAZON: [1500, 5000] // Prix 15-50€
     };
 
     const params = {
@@ -66,6 +65,13 @@ async function testProductFinder() {
       console.log(`   ASIN: ${p.asin}`);
       console.log(`   Marque: ${p.brand || 'N/A'}`);
       console.log(`   Titre: ${p.title?.substring(0, 60)}...`);
+      console.log(`   Catégorie ID: ${p.rootCategory}`);
+    } else {
+      console.log('');
+      console.log('⚠️  Aucun produit trouvé - possible que:');
+      console.log('   1. Les filtres sont trop restrictifs');
+      console.log('   2. La clé Keepa n\'a pas accès au Product Finder');
+      console.log('   3. Le plan Keepa ne supporte pas cette fonctionnalité');
     }
 
     return true;
