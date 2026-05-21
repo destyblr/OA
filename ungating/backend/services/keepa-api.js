@@ -26,7 +26,7 @@ class KeepaAPI {
         maxSellers = 5,
         excludeAmazon = true,
         page = 1,
-        perPage = 100,
+        perPage = 30, // Réduit de 100 à 30 pour économiser les tokens
         sortBy = 'current_SALES'
       } = filters;
 
@@ -44,6 +44,9 @@ class KeepaAPI {
         current_COUNT_NEW_FBA_gte: 0,
         current_COUNT_NEW_FBA_lte: maxSellers,
 
+        // Exclure Amazon comme vendeur
+        ...(excludeAmazon && { current_AMAZON: -1 }),
+
         // Type de produit (0 = standard)
         productType: ['0'],
 
@@ -56,39 +59,55 @@ class KeepaAPI {
         domain: this.domain,
         selection: JSON.stringify(selection),
         sort: JSON.stringify([[sortBy, 'asc']]),
-        page: page - 1, // Keepa commence à 0, pas à 1
-        perPage
+        page: page - 1,
+        perPage,
+        stats: 90 // Demander les statistiques des produits
       };
 
       console.log(`🔍 Keepa Product Finder: ${category || 'All'} | Page ${page}`);
 
       const response = await axios.get(`${KEEPA_BASE_URL}/query`, { params });
 
-      if (response.data.products) {
-        const products = response.data.products.map(p => ({
-          asin: p.asin,
-          brand: p.brand || 'Unknown',
-          title: p.title || '',
-          salesRank: p.stats?.current[3] || null, // BSR actuel
-          price: p.stats?.current[0] / 100 || null, // Prix en €
-          rating: p.stats?.current[16] / 10 || null, // Rating sur 5
-          reviewCount: p.stats?.current[17] || 0,
-          sellerCount: p.stats?.current[6] || 0,
-          amazonPresent: p.stats?.current[0] > 0, // Si Amazon a un prix
-          imageUrl: p.imagesCSV ? `https://images-na.ssl-images-amazon.com/images/I/${p.imagesCSV.split(',')[0]}` : null
-        }));
+      if (response.data.asinList && response.data.asinList.length > 0) {
+        // Limiter au nombre demandé par perPage
+        const asinList = response.data.asinList.slice(0, perPage);
+        const tokensForQuery = response.data.tokensConsumed || 0;
 
-        console.log(`   ✅ ${products.length} produits trouvés`);
-        console.log(`   🎫 Tokens utilisés: ~10`);
+        console.log(`   ✅ ${asinList.length} ASIN trouvés`);
+        console.log(`   🎫 Tokens query: ${tokensForQuery}`);
+
+        // Récupérer les détails des produits par batch de 10
+        console.log(`   📦 Récupération des détails (${asinList.length} ASIN)...`);
+        const allProducts = [];
+        let totalTokensForProducts = 0;
+
+        for (let i = 0; i < asinList.length; i += 10) {
+          const batch = asinList.slice(i, i + 10);
+          const batchAsinString = batch.join(',');
+
+          try {
+            const products = await this.getProduct(batchAsinString);
+            if (products && Array.isArray(products)) {
+              allProducts.push(...products);
+              totalTokensForProducts += batch.length; // 1 token par ASIN
+            }
+          } catch (error) {
+            console.error(`   ⚠️  Erreur batch ${i}-${i+10}: ${error.message}`);
+          }
+        }
+
+        const totalTokens = tokensForQuery + totalTokensForProducts;
+        console.log(`   ✅ ${allProducts.length} produits avec détails`);
+        console.log(`   🎫 Tokens utilisés: ${totalTokens} (query: ${tokensForQuery}, détails: ${totalTokensForProducts})`);
 
         return {
-          products,
-          tokensUsed: 10, // Estimation
-          total: response.data.totalResults || products.length
+          products: allProducts,
+          tokensUsed: totalTokens,
+          total: response.data.totalResults || allProducts.length
         };
       }
 
-      return { products: [], tokensUsed: 10, total: 0 };
+      return { products: [], tokensUsed: response.data.tokensConsumed || 0, total: 0 };
     } catch (error) {
       console.error(`❌ Keepa API Error: ${error.message}`);
       throw new Error(`Keepa Product Finder failed: ${error.message}`);
@@ -123,13 +142,13 @@ class KeepaAPI {
       // Français
       'Bébé': 1063252,
       'Animaux': 11273704031,
-      'Beauté': 3760911,
-      'Épicerie': 9699053031,
+      'Beauté': 64257031,
+      'Épicerie': 10925051,
       // Anglais (legacy)
       'Baby': 1063252,
       'Pet': 11273704031,
-      'Beauty': 3760911,
-      'Grocery': 9699053031,
+      'Beauty': 64257031,
+      'Grocery': 10925051,
       'Toys': 547082
     };
 
@@ -138,6 +157,7 @@ class KeepaAPI {
 
   /**
    * Vérifier si un ASIN existe et récupérer ses données
+   * Supporte plusieurs ASIN séparés par des virgules (batch)
    */
   async getProduct(asin) {
     try {
@@ -145,22 +165,49 @@ class KeepaAPI {
         key: this.apiKey,
         domain: this.domain,
         asin: asin,
-        stats: 1
+        stats: 90
       };
 
       const response = await axios.get(`${KEEPA_BASE_URL}/product`, { params });
 
       if (response.data.products && response.data.products.length > 0) {
-        const p = response.data.products[0];
-        return {
-          asin: p.asin,
-          brand: p.brand,
-          title: p.title,
-          salesRank: p.stats?.current[3],
-          price: p.stats?.current[0] / 100,
-          rating: p.stats?.current[16] / 10,
-          reviewCount: p.stats?.current[17]
-        };
+        // Si un seul ASIN, retourner un objet
+        if (response.data.products.length === 1) {
+          const p = response.data.products[0];
+          const hasPrice = p.stats?.current[0] && p.stats.current[0] > 0;
+          return {
+            asin: p.asin,
+            brand: p.brand || 'Unknown',
+            title: p.title || '',
+            bsr: p.stats?.current[3] || null,
+            price: hasPrice ? p.stats.current[0] / 100 : null,
+            priceNote: !hasPrice ? 'Prix Amazon non disponible' : null,
+            rating: p.stats?.current[16] ? p.stats.current[16] / 10 : null,
+            reviewCount: p.stats?.current[17] || 0,
+            sellerCount: p.stats?.current[6] || 0,
+            amazonPresent: p.stats?.current[0] > 0,
+            imageUrl: p.imagesCSV ? `https://images-na.ssl-images-amazon.com/images/I/${p.imagesCSV.split(',')[0]}` : null,
+            tokensConsumed: response.data.tokensConsumed || 1
+          };
+        }
+
+        // Si plusieurs ASIN, retourner un tableau
+        return response.data.products.map(p => {
+          const hasPrice = p.stats?.current[0] && p.stats.current[0] > 0;
+          return {
+            asin: p.asin,
+            brand: p.brand || 'Unknown',
+            title: p.title || '',
+            bsr: p.stats?.current[3] || null,
+            price: hasPrice ? p.stats.current[0] / 100 : null,
+            priceNote: !hasPrice ? 'Prix Amazon non disponible' : null,
+            rating: p.stats?.current[16] ? p.stats.current[16] / 10 : null,
+            reviewCount: p.stats?.current[17] || 0,
+            sellerCount: p.stats?.current[6] || 0,
+            amazonPresent: p.stats?.current[0] > 0,
+            imageUrl: p.imagesCSV ? `https://images-na.ssl-images-amazon.com/images/I/${p.imagesCSV.split(',')[0]}` : null
+          };
+        });
       }
 
       return null;

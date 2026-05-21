@@ -47,6 +47,30 @@ const HAZMAT_KEYWORDS = [
 ];
 
 /**
+ * Marques Private Label Amazon (à exclure)
+ */
+const PRIVATE_LABEL_BRANDS = [
+  'Amazon Basics',
+  'Amazon Essentials',
+  'Amazon Collection',
+  'Amazon Elements',
+  'Amazon Commercial',
+  'Solimo',
+  'Presto!',
+  'Happy Belly',
+  'Mama Bear',
+  'Pinzon',
+  'Rivet',
+  'Stone & Beam',
+  'Goodthreads',
+  'Daily Ritual',
+  '206 Collective',
+  'Core 10',
+  'Iris & Lilly',
+  'find.'
+];
+
+/**
  * Service principal pour trouver des marques rentables
  */
 class BrandFinder {
@@ -106,6 +130,22 @@ class BrandFinder {
       });
 
       console.log(`   ✅ ${products.length} ASIN après filtre Hazmat\n`);
+
+      // Étape 2b : Filtrer Private Labels Amazon
+      console.log('🏷️  Étape 2b : Filtre Private Labels Amazon\n');
+      products = products.filter(p => {
+        const isPrivateLabel = PRIVATE_LABEL_BRANDS.some(brand =>
+          (p.brand || '').toLowerCase().includes(brand.toLowerCase())
+        );
+
+        if (isPrivateLabel) {
+          console.log(`   ❌ SKIP ${p.asin} : Private Label Amazon (${p.brand})`);
+        }
+
+        return !isPrivateLabel;
+      });
+
+      console.log(`   ✅ ${products.length} ASIN après filtre Private Label\n`);
 
       // Étape 3 : SP-API - Récupérer infos détaillées
       console.log('📦 Étape 3 : SP-API - Infos produits\n');
@@ -378,6 +418,21 @@ class BrandFinder {
         return !isHazmat;
       });
       console.log(`   ✅ ${products.length} ASIN après filtre Hazmat\n`);
+
+      // Étape 2b : Filtrer Private Labels Amazon
+      console.log('🏷️  Étape 2b : Filtre Private Labels Amazon\n');
+      products = products.filter(p => {
+        const isPrivateLabel = PRIVATE_LABEL_BRANDS.some(brand =>
+          (p.brand || '').toLowerCase().includes(brand.toLowerCase())
+        );
+
+        if (isPrivateLabel) {
+          console.log(`   ❌ Private Label: ${p.brand} - ${p.title.substring(0, 50)}...`);
+        }
+
+        return !isPrivateLabel;
+      });
+      console.log(`   ✅ ${products.length} ASIN après filtre Private Label\n`);
 
       // Étape 3 : Vérifier restrictions + Hazmat via SP-API
       console.log('🔐 Étape 3 : Vérification SP-API (restrictions + Hazmat)\n');

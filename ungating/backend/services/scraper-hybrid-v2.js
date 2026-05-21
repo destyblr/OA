@@ -222,6 +222,13 @@ class ScraperHybridV2 {
               continue;
             }
 
+            // FILTRER LES LIVRES (ISBN commence par 978 ou 979)
+            if (productData.ean.startsWith('978') || productData.ean.startsWith('979')) {
+              console.log(`      📚 SKIP: Livre (ISBN ${productData.ean})`);
+              skipped++;
+              continue;
+            }
+
             // VÉRIFIER SI EAN EXISTE DÉJÀ EN BASE
             if (existingEANs.has(productData.ean)) {
               console.log(`      ⏭️ SKIP: EAN ${productData.ean} déjà en base`);

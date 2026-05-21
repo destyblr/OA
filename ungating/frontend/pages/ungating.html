@@ -1100,6 +1100,28 @@ const AsinRentablesView = () => {
     }
   };
 
+  // Trier les ASIN selon l'option choisie
+  const sortedAsins = useMemo(() => {
+    if (!asins || asins.length === 0) return [];
+    const sorted = [...asins];
+    const sortType = filters.asinSort || 'bsr_asc';
+
+    switch(sortType) {
+      case 'bsr_asc':
+        return sorted.sort((a, b) => (a.bsr || 999999) - (b.bsr || 999999));
+      case 'bsr_desc':
+        return sorted.sort((a, b) => (b.bsr || 0) - (a.bsr || 0));
+      case 'price_asc':
+        return sorted.sort((a, b) => (a.price_amazon || 999999) - (b.price_amazon || 999999));
+      case 'price_desc':
+        return sorted.sort((a, b) => (b.price_amazon || 0) - (a.price_amazon || 0));
+      case 'date_desc':
+        return sorted.sort((a, b) => new Date(b.discovered_at || 0) - new Date(a.discovered_at || 0));
+      default:
+        return sorted;
+    }
+  }, [asins, filters.asinSort]);
+
   const scanNow = async () => {
     try {
       const res = await fetch('http://localhost:3000/api/brands/scan', {
@@ -1128,7 +1150,11 @@ const AsinRentablesView = () => {
   }, [filters, activeTab]);
 
   const timeAgo = (date) => {
-    const seconds = Math.floor((new Date() - new Date(date)) / 1000);
+    if (!date) return '--';
+    const parsedDate = new Date(date);
+    if (isNaN(parsedDate.getTime())) return '--';
+
+    const seconds = Math.floor((new Date() - parsedDate) / 1000);
     if (seconds < 60) return 'à l\'instant';
     const minutes = Math.floor(seconds / 60);
     if (minutes < 60) return `il y a ${minutes}min`;
@@ -1175,44 +1201,6 @@ const AsinRentablesView = () => {
             <div className="text-[20px] font-semibold text-zinc-900">{stats.tokensLeft || '--'} / 1,440</div>
           </div>
         </div>
-
-        {/* Historique */}
-        <section className="rounded-xl border border-zinc-200 bg-white shadow-card overflow-hidden mb-8">
-          <header className="px-5 py-4 border-b border-zinc-200">
-            <h2 className="text-[15px] font-semibold tracking-[-0.01em] text-zinc-900">📜 Historique des scans</h2>
-          </header>
-          <table className="w-full">
-            <thead className="bg-zinc-50/70 border-b border-zinc-200">
-              <tr>
-                {['Date','Catégorie','ASIN','Marques','FNAC','Tokens','Durée','Statut'].map((h,i) => (
-                  <th key={i} className="px-4 py-2.5 text-left mono text-[10px] uppercase tracking-[0.15em] text-zinc-500 font-medium">{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {scanHistory.length === 0 ? (
-                <tr><td colSpan={8} className="px-4 py-8 text-center text-zinc-500">Aucun scan</td></tr>
-              ) : (
-                scanHistory.map((scan, i) => (
-                  <tr key={i} className="border-b border-zinc-150">
-                    <td className="px-4 py-3 text-[13px]">{new Date(scan.scan_date).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</td>
-                    <td className="px-4 py-3 text-[13px] font-medium">{scan.category}</td>
-                    <td className="px-4 py-3 text-[13px]">{scan.asins_found || 0}</td>
-                    <td className="px-4 py-3 text-[13px] font-semibold text-emerald-600">{scan.brands_found || 0}</td>
-                    <td className="px-4 py-3 text-[13px]">{scan.brands_with_fnac || 0}</td>
-                    <td className="px-4 py-3 text-[13px]">{scan.tokens_used || 0}</td>
-                    <td className="px-4 py-3 text-[13px]">{scan.duration_seconds || 0}s</td>
-                    <td className="px-4 py-3">
-                      <Badge tone={scan.status === 'completed' ? 'green' : scan.status === 'running' ? 'blue' : 'amber'}>
-                        {scan.status === 'completed' ? 'Terminé' : scan.status === 'running' ? 'En cours' : 'Échoué'}
-                      </Badge>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </section>
 
         {/* Tabs */}
         <div className="flex gap-4 mb-6 border-b border-zinc-200">
@@ -1262,7 +1250,6 @@ const AsinRentablesView = () => {
                 className="px-4 py-2 border border-zinc-200 rounded-lg text-[13px] focus:outline-none focus:ring-2 focus:ring-cobalt-500">
                 <option value="priority_score">Score</option>
                 <option value="avg_bsr">BSR</option>
-                <option value="roi_percentage">ROI</option>
                 <option value="discovered_at">Date découverte</option>
               </select>
               <div className="text-[13px] text-zinc-600">{brands.length} marques</div>
@@ -1295,10 +1282,6 @@ const AsinRentablesView = () => {
                       <div>
                         <div className="text-[11px] text-zinc-500">Prix Amazon</div>
                         <div className="font-semibold text-[14px]">{brand.avg_price_amazon?.toFixed(2)}€</div>
-                      </div>
-                      <div>
-                        <div className="text-[11px] text-zinc-500">ROI</div>
-                        <div className="font-semibold text-[14px] text-emerald-600">{brand.roi_percentage?.toFixed(1)}%</div>
                       </div>
                     </div>
                     <div className="flex items-center gap-3">
@@ -1352,31 +1335,34 @@ const AsinRentablesView = () => {
                 <option value="true">Restreints</option>
                 <option value="false">Non restreints</option>
               </select>
+              <select
+                value={filters.asinSort || 'bsr_asc'}
+                onChange={(e) => setFilters({...filters, asinSort: e.target.value})}
+                className="px-4 py-2 border border-zinc-200 rounded-lg text-[13px] focus:outline-none focus:ring-2 focus:ring-cobalt-500">
+                <option value="bsr_asc">BSR croissant</option>
+                <option value="bsr_desc">BSR décroissant</option>
+                <option value="price_asc">Prix croissant</option>
+                <option value="price_desc">Prix décroissant</option>
+                <option value="date_desc">Plus récents</option>
+              </select>
               <Button variant="accent" size="sm" icon={<I.Filter size={12}/>} onClick={loadAsins}>Filtrer</Button>
-              <div className="text-[13px] text-zinc-600">{asins.length} ASIN</div>
+              <div className="text-[13px] text-zinc-600">{sortedAsins.length} ASIN</div>
             </div>
             <section className="rounded-xl border border-zinc-200 bg-white shadow-card overflow-hidden">
               <table className="w-full">
                 <thead className="bg-zinc-50/70 border-b border-zinc-200">
                   <tr>
-                    {['Image','ASIN','Marque','Titre','BSR','Prix','Rating','Restreint','Date'].map((h,i) => (
+                    {['ASIN','Marque','Titre','BSR','Prix','Rating','Restreint','Date'].map((h,i) => (
                       <th key={i} className="px-4 py-2.5 text-left mono text-[10px] uppercase tracking-[0.15em] text-zinc-500 font-medium">{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
-                  {asins.length === 0 ? (
-                    <tr><td colSpan={9} className="px-4 py-8 text-center text-zinc-500">Aucun ASIN</td></tr>
+                  {sortedAsins.length === 0 ? (
+                    <tr><td colSpan={8} className="px-4 py-8 text-center text-zinc-500">Aucun ASIN</td></tr>
                   ) : (
-                    asins.map((asin, i) => (
+                    sortedAsins.map((asin, i) => (
                       <tr key={i} className="border-b border-zinc-150">
-                        <td className="px-4 py-3">
-                          {asin.image_url ? (
-                            <img src={asin.image_url} alt="" className="w-12 h-12 object-cover rounded" />
-                          ) : (
-                            <div className="w-12 h-12 bg-zinc-100 rounded"/>
-                          )}
-                        </td>
                         <td className="px-4 py-3">
                           <a href={`https://www.amazon.fr/dp/${asin.asin}`} target="_blank" rel="noopener" className="mono text-[12px] text-cobalt-600 hover:underline">
                             {asin.asin}
@@ -1385,7 +1371,13 @@ const AsinRentablesView = () => {
                         <td className="px-4 py-3 text-[13px] font-medium">{asin.brand}</td>
                         <td className="px-4 py-3 text-[13px] truncate max-w-[200px]">{asin.title}</td>
                         <td className="px-4 py-3 text-[13px]">{asin.bsr?.toLocaleString()}</td>
-                        <td className="px-4 py-3 text-[13px]">{asin.price_amazon?.toFixed(2)}€</td>
+                        <td className="px-4 py-3 text-[13px]">
+                          {asin.price_amazon && asin.price_amazon > 0 ? (
+                            `${asin.price_amazon.toFixed(2)}€`
+                          ) : (
+                            <span className="text-zinc-400 cursor-help" title="Prix Amazon non disponible">--</span>
+                          )}
+                        </td>
                         <td className="px-4 py-3"><Stars value={Math.floor(asin.rating || 0)} size={10}/></td>
                         <td className="px-4 py-3">
                           {asin.is_restricted ? (
@@ -1403,6 +1395,50 @@ const AsinRentablesView = () => {
             </section>
           </div>
         )}
+
+        {/* Historique des scans (en bas) */}
+        <div className="px-4 md:px-7 pb-8">
+          <section className="rounded-xl border border-zinc-200 bg-white shadow-card overflow-hidden">
+            <header className="px-5 py-4 border-b border-zinc-200">
+              <h2 className="text-[15px] font-semibold tracking-[-0.01em] text-zinc-900">📜 Historique des scans</h2>
+            </header>
+            <table className="w-full">
+              <thead className="bg-zinc-50/70 border-b border-zinc-200">
+                <tr>
+                  {['Date','Catégorie','ASIN','Marques','FNAC','Tokens','Durée','Statut'].map((h,i) => (
+                    <th key={i} className="px-4 py-2.5 text-left mono text-[10px] uppercase tracking-[0.15em] text-zinc-500 font-medium">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {scanHistory.length === 0 ? (
+                  <tr><td colSpan={8} className="px-4 py-8 text-center text-zinc-500">Aucun scan</td></tr>
+                ) : (
+                  scanHistory.map((scan, i) => (
+                    <tr key={i} className="border-b border-zinc-150 hover:bg-zinc-50 transition-colors group">
+                      <td className="px-4 py-3 text-[13px]">{new Date(scan.scan_date).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</td>
+                      <td className="px-4 py-3 text-[13px] font-medium relative">
+                        <span className="cursor-help" title={`BSR: ${scan.bsr_min || 0}-${scan.bsr_max || 0} | Prix: ${scan.price_min || 0}-${scan.price_max || 0}€ | Max vendeurs: ${scan.max_sellers || 5}`}>
+                          {scan.category}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-[13px]">{scan.asins_found || 0}</td>
+                      <td className="px-4 py-3 text-[13px] font-semibold text-emerald-600">{scan.brands_found || 0}</td>
+                      <td className="px-4 py-3 text-[13px]">{scan.brands_with_fnac || 0}</td>
+                      <td className="px-4 py-3 text-[13px]">{scan.tokens_used || 0}</td>
+                      <td className="px-4 py-3 text-[13px]">{scan.duration_seconds || 0}s</td>
+                      <td className="px-4 py-3">
+                        <Badge tone={scan.status === 'success' || scan.status === 'completed' ? 'green' : scan.status === 'running' ? 'blue' : 'amber'}>
+                          {scan.status === 'success' || scan.status === 'completed' ? 'Terminé' : scan.status === 'running' ? 'En cours' : 'Échoué'}
+                        </Badge>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </section>
+        </div>
       </div>
     </>
   );
