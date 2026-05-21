@@ -236,9 +236,13 @@ const I = {
 
 /* ============ DATA ============ */
 const CATS = [
-  { id:"toys",    label:"Jouets",  count: 14 },
-  { id:"beauty",  label:"Beauté",  count: 34 },
-  { id:"home",    label:"Maison",  count: 28 },
+  { id:"baby",    label:"Bébé",            count: 0 },
+  { id:"toys",    label:"Jouets",          count: 0 },
+  { id:"health",  label:"Hygiène & Santé", count: 0 },
+  { id:"pet",     label:"Animalerie",      count: 0 },
+  { id:"grocery", label:"Alimentation",    count: 0 },
+  { id:"home",    label:"Maison",          count: 0 },
+  { id:"beauty",  label:"Beauté",          count: 0 },
 ];
 
 const TVA = 0.20;
@@ -497,9 +501,13 @@ const PageHero = ({ results }) => {
 /* ============ QUICK LAUNCH CARDS ============ */
 const QuickLaunchCard = ({ cat }) => {
   const icons = {
+    baby: "👶",
     toys: "🧸",
-    beauty: "💄",
-    home: "🏠"
+    health: "🪥",
+    pet: "🐾",
+    grocery: "🍎",
+    home: "🏠",
+    beauty: "💄"
   };
 
   return (
@@ -1039,6 +1047,9 @@ const AsinRentablesView = () => {
   const [scanHistory, setScanHistory] = useState([]);
   const [brands, setBrands] = useState([]);
   const [asins, setAsins] = useState([]);
+  const [showAllHistory, setShowAllHistory] = useState(false);
+  const [brandsPage, setBrandsPage] = useState(1);
+  const [asinsPage, setAsinsPage] = useState(1);
   const [filters, setFilters] = useState({
     category: '',
     hasFNAC: '',
@@ -1116,11 +1127,29 @@ const AsinRentablesView = () => {
       case 'price_desc':
         return sorted.sort((a, b) => (b.price_amazon || 0) - (a.price_amazon || 0));
       case 'date_desc':
-        return sorted.sort((a, b) => new Date(b.discovered_at || 0) - new Date(a.discovered_at || 0));
+        return sorted.sort((a, b) => new Date(b.first_seen || 0) - new Date(a.first_seen || 0));
       default:
         return sorted;
     }
   }, [asins, filters.asinSort]);
+
+  // Pagination
+  const displayedHistory = useMemo(() => {
+    return showAllHistory ? scanHistory : scanHistory.slice(0, 5);
+  }, [scanHistory, showAllHistory]);
+
+  const paginatedBrands = useMemo(() => {
+    const start = (brandsPage - 1) * 10;
+    return brands.slice(start, start + 10);
+  }, [brands, brandsPage]);
+
+  const paginatedAsins = useMemo(() => {
+    const start = (asinsPage - 1) * 25;
+    return sortedAsins.slice(start, start + 25);
+  }, [sortedAsins, asinsPage]);
+
+  const totalBrandPages = Math.ceil(brands.length / 10);
+  const totalAsinPages = Math.ceil(sortedAsins.length / 25);
 
   const scanNow = async () => {
     try {
@@ -1145,8 +1174,13 @@ const AsinRentablesView = () => {
   }, []);
 
   useEffect(() => {
-    if (activeTab === 'brands') loadBrands();
-    else loadAsins();
+    if (activeTab === 'brands') {
+      loadBrands();
+      setBrandsPage(1);
+    } else {
+      loadAsins();
+      setAsinsPage(1);
+    }
   }, [filters, activeTab]);
 
   const timeAgo = (date) => {
@@ -1186,7 +1220,7 @@ const AsinRentablesView = () => {
           </div>
           <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4">
             <div className="text-[11px] uppercase tracking-wider text-zinc-500 mb-1">Scans aujourd'hui</div>
-            <div className="text-[20px] font-semibold text-zinc-900">{stats.scansToday || 0} / 1</div>
+            <div className="text-[20px] font-semibold text-zinc-900">{stats.scansToday || 0}</div>
           </div>
           <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4">
             <div className="text-[11px] uppercase tracking-wider text-zinc-500 mb-1">ASIN analysés</div>
@@ -1198,7 +1232,7 @@ const AsinRentablesView = () => {
           </div>
           <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4">
             <div className="text-[11px] uppercase tracking-wider text-zinc-500 mb-1">Tokens Keepa</div>
-            <div className="text-[20px] font-semibold text-zinc-900">{stats.tokensLeft || '--'} / 1,440</div>
+            <div className="text-[20px] font-semibold text-zinc-900">{stats.tokensLeft || '--'} / 60</div>
           </div>
         </div>
 
@@ -1250,7 +1284,7 @@ const AsinRentablesView = () => {
                 className="px-4 py-2 border border-zinc-200 rounded-lg text-[13px] focus:outline-none focus:ring-2 focus:ring-cobalt-500">
                 <option value="priority_score">Score</option>
                 <option value="avg_bsr">BSR</option>
-                <option value="discovered_at">Date découverte</option>
+                <option value="first_seen">Date découverte</option>
               </select>
               <div className="text-[13px] text-zinc-600">{brands.length} marques</div>
             </div>
@@ -1258,7 +1292,7 @@ const AsinRentablesView = () => {
               {brands.length === 0 ? (
                 <div className="text-center py-12 text-zinc-500">Aucune marque trouvée</div>
               ) : (
-                brands.map((brand, i) => (
+                paginatedBrands.map((brand, i) => (
                   <div key={i} className="border border-zinc-200 rounded-xl p-5 bg-white hover:border-cobalt-500 hover:shadow-lg transition-all">
                     <div className="flex items-start justify-between mb-4">
                       <div>
@@ -1303,6 +1337,32 @@ const AsinRentablesView = () => {
                 ))
               )}
             </div>
+            {/* Pagination Marques */}
+            {totalBrandPages > 1 && (
+              <div className="mt-6 flex items-center justify-center gap-2">
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  disabled={brandsPage === 1}
+                  onClick={() => setBrandsPage(brandsPage - 1)}
+                  icon={<I.ChevronLeft size={14}/>}
+                >
+                  Précédent
+                </Button>
+                <span className="text-[13px] text-zinc-600">
+                  Page {brandsPage} / {totalBrandPages}
+                </span>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  disabled={brandsPage === totalBrandPages}
+                  onClick={() => setBrandsPage(brandsPage + 1)}
+                  iconRight={<I.ChevronRight size={14}/>}
+                >
+                  Suivant
+                </Button>
+              </div>
+            )}
           </div>
         )}
 
@@ -1346,22 +1406,31 @@ const AsinRentablesView = () => {
                 <option value="date_desc">Plus récents</option>
               </select>
               <Button variant="accent" size="sm" icon={<I.Filter size={12}/>} onClick={loadAsins}>Filtrer</Button>
-              <div className="text-[13px] text-zinc-600">{sortedAsins.length} ASIN</div>
+              <div className="text-[13px] text-zinc-600">{sortedAsins.length} ASIN ({paginatedAsins.length} affichés)</div>
             </div>
             <section className="rounded-xl border border-zinc-200 bg-white shadow-card overflow-hidden">
               <table className="w-full">
                 <thead className="bg-zinc-50/70 border-b border-zinc-200">
                   <tr>
-                    {['ASIN','Marque','Titre','BSR','Prix','Rating','Restreint','Date'].map((h,i) => (
-                      <th key={i} className="px-4 py-2.5 text-left mono text-[10px] uppercase tracking-[0.15em] text-zinc-500 font-medium">{h}</th>
-                    ))}
+                    <th className="px-4 py-2.5 text-left mono text-[10px] uppercase tracking-[0.15em] text-zinc-500 font-medium">ASIN</th>
+                    <th className="px-4 py-2.5 text-left mono text-[10px] uppercase tracking-[0.15em] text-zinc-500 font-medium">Marque</th>
+                    <th className="px-4 py-2.5 text-left mono text-[10px] uppercase tracking-[0.15em] text-zinc-500 font-medium">Titre</th>
+                    <th className="px-4 py-2.5 text-left mono text-[10px] uppercase tracking-[0.15em] text-zinc-500 font-medium cursor-help" title="Best Seller Rank: 1-1000 = Top seller, 1K-10K = Très bon, 10K-30K = Bon">BSR</th>
+                    <th className="px-4 py-2.5 text-left mono text-[10px] uppercase tracking-[0.15em] text-zinc-500 font-medium cursor-help" title="Nombre de fois où le BSR a baissé = ventes sur 30 jours">Drops 30j</th>
+                    <th className="px-4 py-2.5 text-left mono text-[10px] uppercase tracking-[0.15em] text-zinc-500 font-medium">Prix</th>
+                    <th className="px-4 py-2.5 text-left mono text-[10px] uppercase tracking-[0.15em] text-zinc-500 font-medium">Rating</th>
+                    <th className="px-4 py-2.5 text-left mono text-[10px] uppercase tracking-[0.15em] text-zinc-500 font-medium">Reviews</th>
+                    <th className="px-4 py-2.5 text-left mono text-[10px] uppercase tracking-[0.15em] text-zinc-500 font-medium">Vendeurs</th>
+                    <th className="px-4 py-2.5 text-left mono text-[10px] uppercase tracking-[0.15em] text-zinc-500 font-medium">AMZ</th>
+                    <th className="px-4 py-2.5 text-left mono text-[10px] uppercase tracking-[0.15em] text-zinc-500 font-medium">Restreint</th>
+                    <th className="px-4 py-2.5 text-left mono text-[10px] uppercase tracking-[0.15em] text-zinc-500 font-medium">Date</th>
                   </tr>
                 </thead>
                 <tbody>
                   {sortedAsins.length === 0 ? (
-                    <tr><td colSpan={8} className="px-4 py-8 text-center text-zinc-500">Aucun ASIN</td></tr>
+                    <tr><td colSpan={12} className="px-4 py-8 text-center text-zinc-500">Aucun ASIN</td></tr>
                   ) : (
-                    sortedAsins.map((asin, i) => (
+                    paginatedAsins.map((asin, i) => (
                       <tr key={i} className="border-b border-zinc-150">
                         <td className="px-4 py-3">
                           <a href={`https://www.amazon.fr/dp/${asin.asin}`} target="_blank" rel="noopener" className="mono text-[12px] text-cobalt-600 hover:underline">
@@ -1370,7 +1439,16 @@ const AsinRentablesView = () => {
                         </td>
                         <td className="px-4 py-3 text-[13px] font-medium">{asin.brand}</td>
                         <td className="px-4 py-3 text-[13px] truncate max-w-[200px]">{asin.title}</td>
-                        <td className="px-4 py-3 text-[13px]">{asin.bsr?.toLocaleString()}</td>
+                        <td className="px-4 py-3 text-[13px] cursor-help" title={`BSR ${asin.bsr?.toLocaleString()} - ${asin.bsr < 1000 ? 'Top seller' : asin.bsr < 10000 ? 'Très bon' : 'Bon'}`}>
+                          {asin.bsr?.toLocaleString()}
+                        </td>
+                        <td className="px-4 py-3 mono text-[12px]">
+                          {asin.bsr_drops_30d ? (
+                            <span className="text-emerald-600 font-medium">{asin.bsr_drops_30d}</span>
+                          ) : (
+                            <span className="text-zinc-400">--</span>
+                          )}
+                        </td>
                         <td className="px-4 py-3 text-[13px]">
                           {asin.price_amazon && asin.price_amazon > 0 ? (
                             `${asin.price_amazon.toFixed(2)}€`
@@ -1378,7 +1456,31 @@ const AsinRentablesView = () => {
                             <span className="text-zinc-400 cursor-help" title="Prix Amazon non disponible">--</span>
                           )}
                         </td>
-                        <td className="px-4 py-3"><Stars value={Math.floor(asin.rating || 0)} size={10}/></td>
+                        <td className="px-4 py-3">
+                          {asin.rating && asin.rating > 0 ? (
+                            <div className="flex items-center gap-1">
+                              <Stars value={Math.floor(asin.rating)} size={10}/>
+                              <span className="text-[11px] text-zinc-500">({asin.rating.toFixed(1)})</span>
+                            </div>
+                          ) : (
+                            <span className="text-zinc-400">--</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 text-[13px]">
+                          {asin.review_count ? (
+                            <span className={asin.review_count > 1000 ? 'text-emerald-600 font-medium' : ''}>{asin.review_count.toLocaleString()}</span>
+                          ) : (
+                            <span className="text-zinc-400">--</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 mono text-[12px]">{asin.seller_count || 0}</td>
+                        <td className="px-4 py-3">
+                          {asin.amazon_present ? (
+                            <Badge tone="amber">Oui</Badge>
+                          ) : (
+                            <Badge tone="green">Non</Badge>
+                          )}
+                        </td>
                         <td className="px-4 py-3">
                           {asin.is_restricted ? (
                             <Badge tone="amber">{asin.restriction_type}</Badge>
@@ -1386,12 +1488,38 @@ const AsinRentablesView = () => {
                             <Badge tone="green">Non</Badge>
                           )}
                         </td>
-                        <td className="px-4 py-3 text-[12px] text-zinc-500">{timeAgo(asin.discovered_at)}</td>
+                        <td className="px-4 py-3 text-[12px] text-zinc-500">{timeAgo(asin.first_seen)}</td>
                       </tr>
                     ))
                   )}
                 </tbody>
               </table>
+              {/* Pagination ASIN */}
+              {totalAsinPages > 1 && (
+                <div className="px-5 py-4 border-t border-zinc-200 flex items-center justify-center gap-2">
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    disabled={asinsPage === 1}
+                    onClick={() => setAsinsPage(asinsPage - 1)}
+                    icon={<I.ChevronLeft size={14}/>}
+                  >
+                    Précédent
+                  </Button>
+                  <span className="text-[13px] text-zinc-600">
+                    Page {asinsPage} / {totalAsinPages}
+                  </span>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    disabled={asinsPage === totalAsinPages}
+                    onClick={() => setAsinsPage(asinsPage + 1)}
+                    iconRight={<I.ChevronRight size={14}/>}
+                  >
+                    Suivant
+                  </Button>
+                </div>
+              )}
             </section>
           </div>
         )}
@@ -1411,10 +1539,10 @@ const AsinRentablesView = () => {
                 </tr>
               </thead>
               <tbody>
-                {scanHistory.length === 0 ? (
+                {displayedHistory.length === 0 ? (
                   <tr><td colSpan={8} className="px-4 py-8 text-center text-zinc-500">Aucun scan</td></tr>
                 ) : (
-                  scanHistory.map((scan, i) => (
+                  displayedHistory.map((scan, i) => (
                     <tr key={i} className="border-b border-zinc-150 hover:bg-zinc-50 transition-colors group">
                       <td className="px-4 py-3 text-[13px]">{new Date(scan.scan_date).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</td>
                       <td className="px-4 py-3 text-[13px] font-medium relative">
@@ -1437,6 +1565,18 @@ const AsinRentablesView = () => {
                 )}
               </tbody>
             </table>
+            {scanHistory.length > 5 && (
+              <div className="px-5 py-3 border-t border-zinc-200 text-center">
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => setShowAllHistory(!showAllHistory)}
+                  iconRight={showAllHistory ? <I.ChevronUp size={14}/> : <I.ChevronDown size={14}/>}
+                >
+                  {showAllHistory ? 'Voir moins' : `Voir plus (${scanHistory.length - 5} autres)`}
+                </Button>
+              </div>
+            )}
           </section>
         </div>
       </div>
@@ -1447,7 +1587,7 @@ const AsinRentablesView = () => {
 /* ============ PAGE ============ */
 function App() {
   const [activeView, setActiveView] = useState('ungating');
-  const [form, setForm] = useState({ maxPrice: 20, cats:["beauty","grocery","health","baby"] });
+  const [form, setForm] = useState({ maxPrice: 20, cats:["baby","toys","health","pet"] });
   const [scanning, setScanning] = useState(false);
   const [progress, setProgress] = useState(0);
   const [results, setResults] = useState([]);

@@ -149,6 +149,67 @@ class ScraperHybridV2 {
   }
 
   /**
+   * FILTRE MÉDIAS: Détecte et exclut livres, CD, DVD, magazines, revues
+   */
+  isMediaProduct(product) {
+    const title = (product.title || '').toLowerCase();
+    const brand = (product.brand || '').toLowerCase();
+    const ean = product.ean || '';
+
+    // 1. LIVRES: EAN commence par 978 ou 979 (ISBN)
+    if (ean.startsWith('978') || ean.startsWith('979')) {
+      return { isMedia: true, type: 'Livre', icon: '📚' };
+    }
+
+    // 2. CD / VINYLE / MUSIQUE
+    const musicKeywords = [
+      'cd ', ' cd', 'album', 'vinyle', 'vinyl', 'disque',
+      'compilation', 'single', 'ep ', ' ep', 'soundtrack',
+      'bande originale', 'best of', 'greatest hits'
+    ];
+    if (musicKeywords.some(kw => title.includes(kw))) {
+      return { isMedia: true, type: 'CD/Musique', icon: '💿' };
+    }
+
+    // 3. DVD / BLU-RAY / FILM
+    const videoKeywords = [
+      'dvd', 'blu-ray', 'bluray', 'film', 'movie',
+      'coffret', 'saison', 'season', 'série', 'series'
+    ];
+    if (videoKeywords.some(kw => title.includes(kw))) {
+      return { isMedia: true, type: 'DVD/Vidéo', icon: '📀' };
+    }
+
+    // 4. MAGAZINES / REVUES / PRESSE
+    const pressKeywords = [
+      'magazine', 'revue', 'hors-série', 'hors serie',
+      'mensuel', 'hebdo', 'quotidien', 'journal',
+      'numéro', 'n°', 'édition spéciale'
+    ];
+    if (pressKeywords.some(kw => title.includes(kw) || brand.includes(kw))) {
+      return { isMedia: true, type: 'Magazine/Presse', icon: '📰' };
+    }
+
+    // Marques connues de magazines
+    const pressBrands = [
+      'grazia', 'elle', 'marie claire', 'cosmopolitan',
+      'vogue', 'gala', 'closer', 'voici', 'public',
+      'l\'express', 'le point', 'paris match', 'telerama'
+    ];
+    if (pressBrands.some(b => brand.includes(b))) {
+      return { isMedia: true, type: 'Magazine/Presse', icon: '📰' };
+    }
+
+    // 5. JEUX VIDÉO (optionnel - à activer si nécessaire)
+    // const gameKeywords = ['playstation', 'xbox', 'nintendo', 'switch', 'ps4', 'ps5'];
+    // if (gameKeywords.some(kw => title.includes(kw) || brand.includes(kw))) {
+    //   return { isMedia: true, type: 'Jeu vidéo', icon: '🎮' };
+    // }
+
+    return { isMedia: false };
+  }
+
+  /**
    * PHASE 1: Scraper une catégorie FNAC complète
    */
   async scrapeFnacCategory(catConfig, maxPrice) {
@@ -222,9 +283,10 @@ class ScraperHybridV2 {
               continue;
             }
 
-            // FILTRER LES LIVRES (ISBN commence par 978 ou 979)
-            if (productData.ean.startsWith('978') || productData.ean.startsWith('979')) {
-              console.log(`      📚 SKIP: Livre (ISBN ${productData.ean})`);
+            // FILTRER LES MÉDIAS (livres, CD, DVD, magazines, revues)
+            const mediaFilter = this.isMediaProduct(productData);
+            if (mediaFilter.isMedia) {
+              console.log(`      ${mediaFilter.icon} SKIP: ${mediaFilter.type} - ${productData.title.substring(0, 50)}`);
               skipped++;
               continue;
             }

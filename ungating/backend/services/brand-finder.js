@@ -364,7 +364,13 @@ class BrandFinder {
     if (brand.paybackDays < 7) score += 10;
     else if (brand.paybackDays < 30) score += 5;
 
-    return Math.min(score, 100);
+    // Pénalité si prix Amazon manquant ou invalide (-20 points)
+    const avgPrice = brand.avgPriceAmazon || brand.avgPrice;
+    if (!avgPrice || avgPrice <= 0) {
+      score -= 20;
+    }
+
+    return Math.max(0, Math.min(score, 100));
   }
 
   /**

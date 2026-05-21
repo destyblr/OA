@@ -7,24 +7,52 @@
  */
 
 module.exports = {
+  baby: {
+    label: "Bébé",
+    type: "search",
+    keyword: "bebe",
+    // Produits: couches, biberons, poussettes, jouets d'éveil
+  },
+
   toys: {
     label: "Jouets",
     type: "search",
     keyword: "jouet",
-    // URL construite dynamiquement: https://www.fnacpro.com/SearchResult/ResultList.aspx?SDM=list&Search=jouet&sft=1
+    // Produits: jouets, peluches, jeux de société
   },
 
-  beauty: {
-    label: "Beauté",
+  health: {
+    label: "Hygiène & Santé",
     type: "search",
-    keyword: "beaute",
-    // URL construite dynamiquement: https://www.fnacpro.com/SearchResult/ResultList.aspx?SDM=list&Search=beaute&sft=1
+    keyword: "hygiene",
+    // Produits: brosses à dents, dentifrice, shampoing, savon
+  },
+
+  pet: {
+    label: "Animalerie",
+    type: "search",
+    keyword: "chat chien",
+    // Produits: nourriture animaux, accessoires, jouets pour animaux
+  },
+
+  grocery: {
+    label: "Alimentation",
+    type: "search",
+    keyword: "nourriture",
+    // Produits: épicerie, snacks, boissons
   },
 
   home: {
     label: "Maison",
-    type: "url",
-    url: "https://www.fnacpro.com/SearchResult/ResultList.aspx?SCat=23!1&SDM=list&Search=maison&sft=1",
-    // URL avec sous-catégorie SCat=23!1
+    type: "search",
+    keyword: "maison",
+    // Produits: déco, cuisine, rangement
+  },
+
+  beauty: {
+    label: "Beauté (avec filtres)",
+    type: "search",
+    keyword: "beaute",
+    // NOTE: Utiliser avec prudence (beaucoup de CD/magazines)
   }
 };
