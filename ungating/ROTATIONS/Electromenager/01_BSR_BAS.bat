@@ -1,17 +1,17 @@
 @echo off
-title OA - Scan High-Tech BSR Moyen (10K-30K)
+title OA - Scan Electromenager BSR Bas (1-10K)
 color 0B
 
 echo ========================================
-echo   SCAN : High-Tech - BSR Moyen (10K-30K)
+echo   SCAN : Électroménager - BSR Bas (1-10K)
 echo ========================================
 echo.
 
 REM Aller dans le dossier backend
-cd /d "%~dp0\..\backend"
+cd /d "%~dp0\\\.\.\\\.\.\\backend"
 
 REM Lancer le scan directement (tout s'affiche ici)
-node run-scan.js high-tech-bsr-moyen
+node run-scan.js electromenager-bsr-bas
 
 echo.
 echo ========================================

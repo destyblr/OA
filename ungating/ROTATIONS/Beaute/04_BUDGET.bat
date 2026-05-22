@@ -8,7 +8,7 @@ echo ========================================
 echo.
 
 REM Aller dans le dossier backend
-cd /d "%~dp0\..\backend"
+cd /d "%~dp0\\\.\.\\\.\.\\backend"
 
 REM Lancer le scan directement (tout s'affiche ici)
 node run-scan.js beaute-budget

@@ -1,17 +1,17 @@
 @echo off
-title OA - Scan Beauté Premium (30-50€)
+title OA - Scan Beauté BSR Moyen (10K-30K)
 color 0B
 
 echo ========================================
-echo   SCAN : Beauté et Santé - Premium (30-50€)
+echo   SCAN : Beauté et Santé - BSR Moyen (10K-30K)
 echo ========================================
 echo.
 
 REM Aller dans le dossier backend
-cd /d "%~dp0\..\backend"
+cd /d "%~dp0\\\.\.\\\.\.\\backend"
 
 REM Lancer le scan directement (tout s'affiche ici)
-node run-scan.js beaute-premium
+node run-scan.js beaute-bsr-moyen
 
 echo.
 echo ========================================
@@ -19,4 +19,4 @@ echo   FIN
 echo ========================================
 echo.
 echo Appuyez sur une touche pour fermer...
-pause >/dev/null
+pause >nul

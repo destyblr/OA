@@ -1,17 +1,17 @@
 @echo off
-title OA - Scan High-Tech Premium (30-50?)
+title OA - Scan Jouets BSR Bas (1-10K)
 color 0B
 
 echo ========================================
-echo   SCAN : High-Tech - Premium (30-50?)
+echo   SCAN : Jeux et Jouets - BSR Bas (1-10K)
 echo ========================================
 echo.
 
 REM Aller dans le dossier backend
-cd /d "%~dp0\..\backend"
+cd /d "%~dp0\\\.\.\\\.\.\\backend"
 
 REM Lancer le scan directement (tout s'affiche ici)
-node run-scan.js high-tech-premium
+node run-scan.js jouets-bsr-bas
 
 echo.
 echo ========================================
