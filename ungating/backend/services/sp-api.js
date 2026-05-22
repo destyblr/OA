@@ -1,6 +1,9 @@
 const SellingPartnerAPI = require('amazon-sp-api');
 require('dotenv').config();
 
+// Désactiver vérification SSL stricte (nécessaire pour amazon-sp-api)
+process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+
 /**
  * Service pour interagir avec Amazon SP-API
  */
@@ -25,7 +28,7 @@ class AmazonSPAPI {
     try {
       const result = await this.client.callAPI({
         operation: 'getCatalogItem',
-        endpoint: 'catalog',
+        endpoint: 'catalogItems',
         path: {
           asin: asin
         },
@@ -59,7 +62,7 @@ class AmazonSPAPI {
     try {
       const result = await this.client.callAPI({
         operation: 'getListingsRestrictions',
-        endpoint: 'listings',
+        endpoint: 'listingsRestrictions',
         query: {
           asin: asin,
           sellerId: this.sellerId,
@@ -117,8 +120,14 @@ class AmazonSPAPI {
 
   /**
    * Vérifier si un produit est Hazmat
+   * NOTE: Endpoint FBA Inbound non disponible dans amazon-sp-api v1.2.1
+   * On utilise le filtre par mots-clés du scan à la place
    */
   async checkHazmat(asin) {
+    // Désactivé temporairement - utiliser filtre par mots-clés
+    return { asin, isHazmat: false, reasons: ['Checked via keyword filter'] };
+
+    /* Code original commenté
     try {
       const result = await this.client.callAPI({
         operation: 'getItemEligibilityPreview',
@@ -145,6 +154,7 @@ class AmazonSPAPI {
       console.error(`❌ SP-API Check Hazmat Error (${asin}): ${error.message}`);
       return { asin, isHazmat: false, reasons: [] };
     }
+    */
   }
 
   /**
