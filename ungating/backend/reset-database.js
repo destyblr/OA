@@ -4,6 +4,9 @@
  * Supprime toutes les données des tables de scan
  */
 
+// Fix SSL pour Supabase
+process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+
 require('dotenv').config();
 const supabase = require('./config/supabase');
 
