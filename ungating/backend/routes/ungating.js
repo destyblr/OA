@@ -60,4 +60,26 @@ router.get('/scan/:scanId/results', async (req, res) => {
   }
 });
 
+// POST /api/ungating/scan/brand
+// Démarre un scan pour une marque spécifique
+router.post('/scan/brand', async (req, res) => {
+  try {
+    const { brand, maxPrice } = req.body;
+
+    if (!brand) {
+      return res.status(400).json({
+        error: 'Invalid parameters. Required: brand (string)'
+      });
+    }
+
+    const io = req.app.get('io');
+    const result = await ungatingService.startBrandScan(brand, maxPrice || 10, io);
+
+    res.json(result);
+  } catch (error) {
+    console.error('Error starting brand scan:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 module.exports = router;

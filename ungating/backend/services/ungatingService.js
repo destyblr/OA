@@ -157,6 +157,18 @@ class UngatingService {
   }
 
   /**
+   * Démarre un scan pour une marque spécifique
+   * @param {string} brand - Nom de la marque
+   * @param {number} maxPrice - Prix maximum
+   * @param {object} io - Instance Socket.io
+   */
+  async startBrandScan(brand, maxPrice, io) {
+    // Utiliser le nom de la marque comme keyword de recherche
+    // Le scraper va construire l'URL: https://www.fnacpro.com/SearchResult/ResultList.aspx?Search=<brand>
+    return await this.startScan(maxPrice, [brand], io);
+  }
+
+  /**
    * Récupère la progression d'un scan
    */
   async getScanProgress(scanId) {

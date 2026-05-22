@@ -77,10 +77,19 @@ class ScraperHybridV2 {
     await this.initPuppeteer();
 
     for (const catId of categories) {
-      const catConfig = categoryMapping[catId];
-      if (!catConfig) continue;
+      let catConfig = categoryMapping[catId];
 
-      console.log(`📦 Catégorie: ${catConfig.label}`);
+      // Si pas dans categoryMapping, créer une config dynamique (pour les marques)
+      if (!catConfig) {
+        catConfig = {
+          label: catId,
+          type: "search",
+          keyword: catId
+        };
+        console.log(`🔍 Marque: ${catId}`);
+      } else {
+        console.log(`📦 Catégorie: ${catConfig.label}`);
+      }
 
       const products = await this.scrapeFnacCategory(catConfig, maxPrice);
       allProducts.push(...products);
@@ -225,7 +234,10 @@ class ScraperHybridV2 {
       if (catConfig.type === 'url') {
         await page.goto(catConfig.url, { waitUntil: 'networkidle2', timeout: 60000 });
       } else {
-        await page.goto(`https://www.fnacpro.com/SearchResult/ResultList.aspx?Search=${catConfig.keyword}`, {
+        // URL avec filtres: SDM=list (mode liste), SFilt=1!11 (prix ≤10€), sft=1
+        const keyword = encodeURIComponent(catConfig.keyword);
+        const url = `https://www.fnacpro.com/SearchResult/ResultList.aspx?SDM=list&Search=${keyword}&SFilt=1!11&sft=1`;
+        await page.goto(url, {
           waitUntil: 'networkidle2',
           timeout: 60000
         });
@@ -234,8 +246,20 @@ class ScraperHybridV2 {
       console.log(`   ⏸️  ATTENTE: Résous le CAPTCHA si nécessaire (30 secondes)...`);
       await page.waitForTimeout(30000); // 30 secondes pour le CAPTCHA
 
-      // Appliquer filtres prix
-      await this.applyPriceFilters(page, maxPrice);
+      // Vérifier s'il y a des résultats
+      const hasResults = await page.evaluate(() => {
+        const noResultsText = document.body.innerText;
+        return !noResultsText.includes("Il n'y a aucun résultat pour votre recherche");
+      });
+
+      if (!hasResults) {
+        console.log(`   ⚠️ Aucun résultat trouvé pour "${catConfig.keyword}" avec filtre ≤10€`);
+        await page.close();
+        return [];
+      }
+
+      // Filtres prix déjà appliqués via URL (SFilt=1!11)
+      // await this.applyPriceFilters(page, maxPrice);
 
       // Charger les EAN déjà en base (cache pour skip)
       console.log(`   📦 Chargement cache EAN existants...`);

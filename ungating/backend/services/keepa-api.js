@@ -32,8 +32,22 @@ class KeepaAPI {
 
       // Construction de la requête Keepa (format correct avec _gte/_lte)
       const selection = {
-        // TOUT DÉSACTIVÉ POUR TEST - MÊME LA CATÉGORIE
-        // ...(category && { rootCategory: this.getCategoryId(category) })
+        // Filtre de catégorie (OBLIGATOIRE pour avoir des résultats cohérents)
+        ...(category && { rootCategory: this.getCategoryId(category) }),
+
+        // BSR (Best Seller Rank)
+        current_SALES_gte: bsrRange[0],
+        current_SALES_lte: bsrRange[1],
+
+        // Prix (en centimes d'euros pour Keepa)
+        current_NEW_gte: priceRange[0],
+        current_NEW_lte: priceRange[1],
+
+        // Nombre de vendeurs FBA max
+        current_COUNT_NEW_FBA_lte: maxSellers,
+
+        // Exclure Amazon si demandé
+        ...(excludeAmazon && { current_AMAZON: -1 })
       };
 
       const params = {

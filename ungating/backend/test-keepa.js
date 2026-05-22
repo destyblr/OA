@@ -44,8 +44,11 @@ async function testProductFinder() {
       current_BUY_BOX_SHIPPING_lte: 5000,
       current_COUNT_NEW_FBA_gte: 0,
       current_COUNT_NEW_FBA_lte: 5,
-      productType: ['0']
+      productType: ['0'],
+      rootCategory: 322086011  // Test Jeux et Jouets
     };
+
+    console.log('Selection:', JSON.stringify(selection, null, 2));
 
     const params = {
       key: KEEPA_API_KEY,
