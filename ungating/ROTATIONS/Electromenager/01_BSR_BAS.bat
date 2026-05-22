@@ -1,14 +1,14 @@
-@echo off
+﻿@echo off
 title OA - Scan Electromenager BSR Bas (1-10K)
 color 0B
 
 echo ========================================
-echo   SCAN : Électroménager - BSR Bas (1-10K)
+echo   SCAN : Ã‰lectromÃ©nager - BSR Bas (1-10K)
 echo ========================================
 echo.
 
 REM Aller dans le dossier backend
-cd /d "%~dp0\\\.\.\\\.\.\\backend"
+cd /d "%~dp0..\..\backend"
 
 REM Lancer le scan directement (tout s'affiche ici)
 node run-scan.js electromenager-bsr-bas

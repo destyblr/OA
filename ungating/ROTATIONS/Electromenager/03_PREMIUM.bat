@@ -1,14 +1,14 @@
-@echo off
-title OA - Scan Electromenager Premium (30-50€)
+﻿@echo off
+title OA - Scan Electromenager Premium (30-50â‚¬)
 color 0B
 
 echo ========================================
-echo   SCAN : Électroménager - Premium (30-50€)
+echo   SCAN : Ã‰lectromÃ©nager - Premium (30-50â‚¬)
 echo ========================================
 echo.
 
 REM Aller dans le dossier backend
-cd /d "%~dp0\\\.\.\\\.\.\\backend"
+cd /d "%~dp0..\..\backend"
 
 REM Lancer le scan directement (tout s'affiche ici)
 node run-scan.js electromenager-premium

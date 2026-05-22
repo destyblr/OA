@@ -1,14 +1,14 @@
-@echo off
-title OA - Scan Beauté BSR Moyen (10K-30K)
+﻿@echo off
+title OA - Scan BeautÃ© BSR Moyen (10K-30K)
 color 0B
 
 echo ========================================
-echo   SCAN : Beauté et Santé - BSR Moyen (10K-30K)
+echo   SCAN : BeautÃ© et SantÃ© - BSR Moyen (10K-30K)
 echo ========================================
 echo.
 
 REM Aller dans le dossier backend
-cd /d "%~dp0\\\.\.\\\.\.\\backend"
+cd /d "%~dp0..\..\backend"
 
 REM Lancer le scan directement (tout s'affiche ici)
 node run-scan.js beaute-bsr-moyen

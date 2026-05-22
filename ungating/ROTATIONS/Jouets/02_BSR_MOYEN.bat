@@ -1,4 +1,4 @@
-@echo off
+﻿@echo off
 title OA - Scan Jouets BSR Moyen (10K-30K)
 color 0B
 
@@ -8,7 +8,7 @@ echo ========================================
 echo.
 
 REM Aller dans le dossier backend
-cd /d "%~dp0\\\.\.\\\.\.\\backend"
+cd /d "%~dp0..\..\backend"
 
 REM Lancer le scan directement (tout s'affiche ici)
 node run-scan.js jouets-bsr-moyen
