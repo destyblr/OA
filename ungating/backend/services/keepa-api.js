@@ -32,26 +32,8 @@ class KeepaAPI {
 
       // Construction de la requête Keepa (format correct avec _gte/_lte)
       const selection = {
-        // Filtre BSR (Sales Rank)
-        current_SALES_gte: bsrRange[0],
-        current_SALES_lte: bsrRange[1],
-
-        // Filtre Prix Buy Box
-        current_BUY_BOX_SHIPPING_gte: priceRange[0],
-        current_BUY_BOX_SHIPPING_lte: priceRange[1],
-
-        // Filtre Vendeurs FBA
-        current_COUNT_NEW_FBA_gte: 0,
-        current_COUNT_NEW_FBA_lte: maxSellers,
-
-        // Exclure Amazon comme vendeur
-        ...(excludeAmazon && { current_AMAZON: -1 }),
-
-        // Type de produit (0 = standard)
-        productType: ['0'],
-
-        // Catégorie
-        ...(category && { rootCategory: this.getCategoryId(category) })
+        // TOUT DÉSACTIVÉ POUR TEST - MÊME LA CATÉGORIE
+        // ...(category && { rootCategory: this.getCategoryId(category) })
       };
 
       const params = {
@@ -65,6 +47,8 @@ class KeepaAPI {
       };
 
       console.log(`🔍 Keepa Product Finder: ${category || 'All'} | Page ${page}`);
+      console.log(`📋 Keepa Query:`, JSON.stringify(selection, null, 2));
+      console.log(`🔑 Category ID: ${this.getCategoryId(category)}`);
 
       const response = await axios.get(`${KEEPA_BASE_URL}/query`, { params });
 
@@ -135,22 +119,15 @@ class KeepaAPI {
   }
 
   /**
-   * Mapper les catégories vers les IDs Keepa
+   * Mapper les catégories vers les rootCategory Keepa
    */
   getCategoryId(category) {
     const categoryMap = {
-      // Amazon.fr (domain 4) - IDs KEEPA OFFICIELS
-      'Bébé': 2404509,       // Bébé et Puériculture
-      'Animaux': 5975310,    // Animalerie
-      'Beauté': 5543023,     // Beauté et Parfum
-      'Épicerie': 870931,    // Épicerie
-      'Jouets': 5213591,     // Jeux et Jouets
-      // Anglais (legacy)
-      'Baby': 2404509,
-      'Pet': 5975310,
-      'Beauty': 5543023,
-      'Grocery': 870931,
-      'Toys': 5213591
+      // Amazon.fr (domain 4) - rootCategory Keepa RÉELS
+      'High-Tech': 13921051,           // High-Tech (Informatique, Smartphones, etc.)
+      'Jeux et Jouets': 322086011,     // Jeux et Jouets
+      'Hygiène et Santé': 197861031,   // Beauté, Santé, Bien-être
+      'Cuisine et Maison': 57004031    // Électroménager, Cuisine
     };
 
     return categoryMap[category] || null;
@@ -188,6 +165,8 @@ class KeepaAPI {
             sellerCount: (p.stats?.current[35] && p.stats.current[35] > 0) ? p.stats.current[35] : 0,
             amazonPresent: p.stats?.current[3] === 1,
             imageUrl: p.imagesCSV ? `https://images-na.ssl-images-amazon.com/images/I/${p.imagesCSV.split(',')[0]}` : null,
+            rootCategory: p.rootCategory,
+            categoryTree: p.categoryTree,
             tokensConsumed: response.data.tokensConsumed || 1
           };
         }
@@ -206,7 +185,9 @@ class KeepaAPI {
             reviewCount: (p.stats?.current[34] && p.stats.current[34] > 0) ? p.stats.current[34] : 0,
             sellerCount: (p.stats?.current[35] && p.stats.current[35] > 0) ? p.stats.current[35] : 0,
             amazonPresent: p.stats?.current[3] === 1,
-            imageUrl: p.imagesCSV ? `https://images-na.ssl-images-amazon.com/images/I/${p.imagesCSV.split(',')[0]}` : null
+            imageUrl: p.imagesCSV ? `https://images-na.ssl-images-amazon.com/images/I/${p.imagesCSV.split(',')[0]}` : null,
+            rootCategory: p.rootCategory,
+            categoryTree: p.categoryTree
           };
         });
       }
