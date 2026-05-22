@@ -1065,9 +1065,17 @@ const AsinRentablesView = () => {
 
   const loadStats = async () => {
     try {
-      const res = await fetch('http://localhost:3000/api/brands/stats');
-      const data = await res.json();
-      if (data.success) setStats(data.stats);
+      // Charger directement depuis Supabase
+      const { data: scans } = await supabase.from('keepa_scan_history').select('*');
+      const { data: brands } = await supabase.from('brand_opportunities').select('*');
+      const { data: asins } = await supabase.from('asin_details').select('*');
+
+      setStats({
+        totalScans: scans?.length || 0,
+        totalBrands: brands?.length || 0,
+        totalAsins: asins?.length || 0,
+        brandsWithFNAC: brands?.filter(b => b.fnac_product_count > 0).length || 0
+      });
     } catch (error) {
       console.error('Error loading stats:', error);
     }
@@ -1075,9 +1083,13 @@ const AsinRentablesView = () => {
 
   const loadScanHistory = async () => {
     try {
-      const res = await fetch('http://localhost:3000/api/brands/scan-history?limit=10');
-      const data = await res.json();
-      if (data.success) setScanHistory(data.history);
+      const { data, error } = await supabase
+        .from('keepa_scan_history')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(10);
+
+      if (!error) setScanHistory(data || []);
     } catch (error) {
       console.error('Error loading history:', error);
     }
@@ -1085,15 +1097,26 @@ const AsinRentablesView = () => {
 
   const loadBrands = async () => {
     try {
-      const params = new URLSearchParams({
-        ...(filters.category && { category: filters.category }),
-        ...(filters.hasFNAC && { hasFNAC: filters.hasFNAC }),
-        sortBy: filters.sortBy,
-        limit: 50
-      });
-      const res = await fetch(`http://localhost:3000/api/brands/opportunities?${params}`);
-      const data = await res.json();
-      if (data.success) setBrands(data.brands);
+      let query = supabase.from('brand_opportunities').select('*');
+
+      if (filters.category) {
+        query = query.eq('category', filters.category);
+      }
+      if (filters.hasFNAC === 'yes') {
+        query = query.gt('fnac_product_count', 0);
+      } else if (filters.hasFNAC === 'no') {
+        query = query.eq('fnac_product_count', 0);
+      }
+
+      const sortField = filters.sortBy === 'priority_score' ? 'priority_score' :
+                       filters.sortBy === 'avg_bsr' ? 'avg_bsr' : 'created_at';
+      const sortAsc = filters.sortBy === 'avg_bsr';
+
+      const { data, error } = await query
+        .order(sortField, { ascending: sortAsc })
+        .limit(50);
+
+      if (!error) setBrands(data || []);
     } catch (error) {
       console.error('Error loading brands:', error);
     }
@@ -1101,15 +1124,25 @@ const AsinRentablesView = () => {
 
   const loadAsins = async () => {
     try {
-      const params = new URLSearchParams({
-        ...(filters.asinBrand && { brand: filters.asinBrand }),
-        ...(filters.asinCategory && { category: filters.asinCategory }),
-        ...(filters.asinRestricted && { isRestricted: filters.asinRestricted }),
-        limit: 100
-      });
-      const res = await fetch(`http://localhost:3000/api/brands/asins/recent?${params}`);
-      const data = await res.json();
-      if (data.success) setAsins(data.asins);
+      let query = supabase.from('asin_details').select('*');
+
+      if (filters.asinBrand) {
+        query = query.eq('brand', filters.asinBrand);
+      }
+      if (filters.asinCategory) {
+        query = query.eq('category', filters.asinCategory);
+      }
+      if (filters.asinRestricted === 'yes') {
+        query = query.eq('is_restricted', true);
+      } else if (filters.asinRestricted === 'no') {
+        query = query.eq('is_restricted', false);
+      }
+
+      const { data, error } = await query
+        .order('first_seen', { ascending: false })
+        .limit(100);
+
+      if (!error) setAsins(data || []);
     } catch (error) {
       console.error('Error loading ASINs:', error);
     }
