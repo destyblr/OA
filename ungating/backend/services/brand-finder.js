@@ -541,6 +541,11 @@ class BrandFinder {
         brand.minBsr = Math.min(...brand.products.map(p => p.bsr));
         brand.avgPriceAmazon = brand.products.reduce((sum, p) => sum + p.price, 0) / brand.products.length;
 
+        // Restriction et type
+        brand.isRestricted = brand.products.some(p => p.isRestricted);
+        brand.restrictionType = brand.products.find(p => p.isRestricted)?.restrictionType || null;
+        brand.exampleAsin = brand.products[0].asin;
+
         // ROI estimation (simplifié)
         if (brand.nbProductsFnac > 0 && brand.avgPriceFnac) {
           const margin = brand.avgPriceAmazon - brand.avgPriceFnac;
