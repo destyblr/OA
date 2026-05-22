@@ -1,4 +1,4 @@
-﻿@echo off
+@echo off
 title OA - Scan High-Tech BSR Moyen (10K-30K)
 color 0B
 

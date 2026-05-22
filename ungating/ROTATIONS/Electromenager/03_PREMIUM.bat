@@ -1,9 +1,9 @@
-﻿@echo off
-title OA - Scan Electromenager Premium (30-50â‚¬)
+@echo off
+title OA - Scan Electromenager Premium (30-50???)
 color 0B
 
 echo ========================================
-echo   SCAN : Ã‰lectromÃ©nager - Premium (30-50â‚¬)
+echo   SCAN : ??lectrom??nager - Premium (30-50???)
 echo ========================================
 echo.
 

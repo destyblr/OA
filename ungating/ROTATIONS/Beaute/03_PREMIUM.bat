@@ -1,9 +1,9 @@
-﻿@echo off
-title OA - Scan BeautÃ© Premium (30-50â‚¬)
+@echo off
+title OA - Scan Beaut?? Premium (30-50???)
 color 0B
 
 echo ========================================
-echo   SCAN : BeautÃ© et SantÃ© - Premium (30-50â‚¬)
+echo   SCAN : Beaut?? et Sant?? - Premium (30-50???)
 echo ========================================
 echo.
 

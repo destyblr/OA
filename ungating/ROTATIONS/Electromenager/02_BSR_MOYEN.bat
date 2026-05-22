@@ -1,9 +1,9 @@
-﻿@echo off
+@echo off
 title OA - Scan Electromenager BSR Moyen (10K-30K)
 color 0B
 
 echo ========================================
-echo   SCAN : Ã‰lectromÃ©nager - BSR Moyen (10K-30K)
+echo   SCAN : ??lectrom??nager - BSR Moyen (10K-30K)
 echo ========================================
 echo.
 

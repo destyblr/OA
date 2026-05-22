@@ -1,9 +1,9 @@
-﻿@echo off
-title OA - Scan Jouets Budget (15-25â‚¬)
+@echo off
+title OA - Scan Jouets Budget (15-25???)
 color 0B
 
 echo ========================================
-echo   SCAN : Jeux et Jouets - Budget (15-25â‚¬)
+echo   SCAN : Jeux et Jouets - Budget (15-25???)
 echo ========================================
 echo.
 

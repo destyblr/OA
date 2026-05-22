@@ -1,5 +1,5 @@
-﻿@echo off
-title TEST - Mesure coÃ»t tokens
+@echo off
+title TEST - Mesure co??t tokens
 color 0E
 
 echo ========================================

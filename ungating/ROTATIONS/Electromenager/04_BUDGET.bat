@@ -1,9 +1,9 @@
-﻿@echo off
-title OA - Scan Electromenager Budget (15-25â‚¬)
+@echo off
+title OA - Scan Electromenager Budget (15-25???)
 color 0B
 
 echo ========================================
-echo   SCAN : Ã‰lectromÃ©nager - Budget (15-25â‚¬)
+echo   SCAN : ??lectrom??nager - Budget (15-25???)
 echo ========================================
 echo.
 

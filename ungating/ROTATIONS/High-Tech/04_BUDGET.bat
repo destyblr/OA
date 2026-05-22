@@ -1,4 +1,4 @@
-﻿@echo off
+@echo off
 title OA - Scan High-Tech Premium (30-50?)
 color 0B
 

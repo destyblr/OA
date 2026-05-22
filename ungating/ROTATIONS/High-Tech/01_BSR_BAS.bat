@@ -1,4 +1,4 @@
-﻿@echo off
+@echo off
 title OA - Scan High-Tech BSR Bas (1-10K)
 color 0B
 

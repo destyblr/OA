@@ -1,9 +1,9 @@
-﻿@echo off
-title OA - Scan High-Tech Premium (30-50â‚¬)
+@echo off
+title OA - Scan High-Tech Premium (30-50???)
 color 0B
 
 echo ========================================
-echo   SCAN : High-Tech - Premium (30-50â‚¬)
+echo   SCAN : High-Tech - Premium (30-50???)
 echo ========================================
 echo.
 

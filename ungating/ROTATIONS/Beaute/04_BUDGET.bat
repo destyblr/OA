@@ -1,9 +1,9 @@
-﻿@echo off
-title OA - Scan BeautÃ© Budget (15-25â‚¬)
+@echo off
+title OA - Scan Beaut?? Budget (15-25???)
 color 0B
 
 echo ========================================
-echo   SCAN : BeautÃ© et SantÃ© - Budget (15-25â‚¬)
+echo   SCAN : Beaut?? et Sant?? - Budget (15-25???)
 echo ========================================
 echo.
 

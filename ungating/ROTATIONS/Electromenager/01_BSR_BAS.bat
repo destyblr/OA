@@ -1,9 +1,9 @@
-﻿@echo off
+@echo off
 title OA - Scan Electromenager BSR Bas (1-10K)
 color 0B
 
 echo ========================================
-echo   SCAN : Ã‰lectromÃ©nager - BSR Bas (1-10K)
+echo   SCAN : ??lectrom??nager - BSR Bas (1-10K)
 echo ========================================
 echo.
 

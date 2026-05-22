@@ -1,9 +1,9 @@
-﻿@echo off
-title OA - Scan BeautÃ© BSR Bas (1-10K)
+@echo off
+title OA - Scan Beaut?? BSR Bas (1-10K)
 color 0B
 
 echo ========================================
-echo   SCAN : BeautÃ© et SantÃ© - BSR Bas (1-10K)
+echo   SCAN : Beaut?? et Sant?? - BSR Bas (1-10K)
 echo ========================================
 echo.
 

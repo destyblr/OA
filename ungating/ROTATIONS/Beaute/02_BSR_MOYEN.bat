@@ -1,9 +1,9 @@
-﻿@echo off
-title OA - Scan BeautÃ© BSR Moyen (10K-30K)
+@echo off
+title OA - Scan Beaut?? BSR Moyen (10K-30K)
 color 0B
 
 echo ========================================
-echo   SCAN : BeautÃ© et SantÃ© - BSR Moyen (10K-30K)
+echo   SCAN : Beaut?? et Sant?? - BSR Moyen (10K-30K)
 echo ========================================
 echo.
 

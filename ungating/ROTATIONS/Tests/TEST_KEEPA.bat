@@ -1,4 +1,4 @@
-﻿@echo off
+@echo off
 title Test Keepa API
 color 0E
 

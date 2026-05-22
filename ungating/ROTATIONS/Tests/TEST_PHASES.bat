@@ -1,4 +1,4 @@
-﻿@echo off
+@echo off
 title Test Phases 2-8 (SANS tokens)
 color 0E
 
