@@ -1,9 +1,9 @@
 @echo off
-title OA - Scan Beauté BSR Bas (1-10K)
+title OA - Scan Electromenager Premium (30-50€)
 color 0B
 
 echo ========================================
-echo   SCAN : Beauté et Santé - BSR Bas (1-10K)
+echo   SCAN : Électroménager - Premium (30-50€)
 echo ========================================
 echo.
 
@@ -11,7 +11,7 @@ REM Aller dans le dossier backend
 cd /d "%~dp0\..\backend"
 
 REM Lancer le scan directement (tout s'affiche ici)
-node run-scan.js beaute-bsr-bas
+node run-scan.js electromenager-premium
 
 echo.
 echo ========================================
@@ -19,4 +19,4 @@ echo   FIN
 echo ========================================
 echo.
 echo Appuyez sur une touche pour fermer...
-pause >nul
+pause >/dev/null

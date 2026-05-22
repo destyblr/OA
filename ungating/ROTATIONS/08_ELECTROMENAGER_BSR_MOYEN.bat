@@ -1,9 +1,9 @@
 @echo off
-title OA - Scan Beauté BSR Bas (1-10K)
+title OA - Scan Electromenager BSR Moyen (10K-30K)
 color 0B
 
 echo ========================================
-echo   SCAN : Beauté et Santé - BSR Bas (1-10K)
+echo   SCAN : Électroménager - BSR Moyen (10K-30K)
 echo ========================================
 echo.
 
@@ -11,7 +11,7 @@ REM Aller dans le dossier backend
 cd /d "%~dp0\..\backend"
 
 REM Lancer le scan directement (tout s'affiche ici)
-node run-scan.js beaute-bsr-bas
+node run-scan.js electromenager-bsr-moyen
 
 echo.
 echo ========================================
