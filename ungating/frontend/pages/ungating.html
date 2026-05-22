@@ -447,7 +447,7 @@ const PageHero = ({ results }) => {
           <div className="flex items-baseline justify-between mb-3">
             <span className="mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">Dernier scan</span>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-1 gap-3">
             {/* Opportunités */}
             <div className="rounded-lg border border-zinc-200 bg-white p-3.5 lift shadow-card">
               <div className="flex items-center justify-between">
@@ -457,43 +457,6 @@ const PageHero = ({ results }) => {
                 <div className="text-[24px] font-semibold tracking-[-0.025em] text-zinc-900 tnum">{totalOpportunities}</div>
               </div>
               <div className="mt-0.5 text-[11.5px] text-zinc-500">produits éligibles</div>
-            </div>
-
-            {/* Marques (popover) */}
-            <div className="relative group/marques rounded-lg border border-zinc-200 bg-white p-3.5 lift shadow-card cursor-default">
-              <div className="flex items-center justify-between">
-                <span className="mono text-[10px] uppercase tracking-[0.15em] text-zinc-500">Marques</span>
-              </div>
-              <div className="mt-2 flex items-baseline gap-1.5">
-                <div className="text-[24px] font-semibold tracking-[-0.025em] text-zinc-900 tnum">{uniqueBrands}</div>
-              </div>
-              <div className="mt-0.5 text-[11.5px] text-zinc-500">marques uniques débloquables</div>
-
-              {/* Popover */}
-              {topBrands.length > 0 && (
-                <div className="absolute left-0 right-0 top-[calc(100%+8px)] z-30 rounded-lg border border-zinc-200 bg-white shadow-card-md p-3 opacity-0 invisible group-hover/marques:opacity-100 group-hover/marques:visible transition-all duration-150 pointer-events-none group-hover/marques:pointer-events-auto">
-                  <div className="mb-2 mono text-[10px] uppercase tracking-[0.15em] text-zinc-500">Top marques</div>
-                  <div className="space-y-0.5">
-                    {topBrands.map(([brand, cost]) => (
-                      <div key={brand} className="flex items-center gap-3 px-2 h-7 rounded hover:bg-zinc-50">
-                        <span className="text-[12.5px] text-zinc-900 flex-1 truncate">{brand}</span>
-                        <span className="mono text-[12px] tnum text-zinc-900 font-medium">{cost.toFixed(2)} €</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Catégories */}
-            <div className="rounded-lg border border-zinc-200 bg-white p-3.5 lift shadow-card">
-              <div className="flex items-center justify-between">
-                <span className="mono text-[10px] uppercase tracking-[0.15em] text-zinc-500">Catégories</span>
-              </div>
-              <div className="mt-2 flex items-baseline gap-1.5">
-                <div className="text-[24px] font-semibold tracking-[-0.025em] text-zinc-900 tnum">{uniqueCategories}</div>
-              </div>
-              <div className="mt-0.5 text-[11.5px] text-zinc-500">catégories débloquables</div>
             </div>
           </div>
         </div>
@@ -530,24 +493,8 @@ const QuickLaunchCard = ({ cat }) => {
   );
 };
 
-const QuickLaunchCards = () => (
-  <section className="space-y-4">
-    <div className="flex items-center gap-3">
-      <div className="w-9 h-9 rounded-lg bg-zinc-900 grid place-items-center text-white shrink-0">
-        <I.Bolt size={16}/>
-      </div>
-      <div>
-        <h2 className="text-[15px] font-semibold tracking-[-0.01em] text-zinc-900">Catégories disponibles</h2>
-        <p className="text-[12.5px] text-zinc-500 mt-0.5">Lance les scans depuis ton ordinateur avec les raccourcis bureau</p>
-      </div>
-    </div>
-    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-      {CATS.map(cat => (
-        <QuickLaunchCard key={cat.id} cat={cat} />
-      ))}
-    </div>
-  </section>
-);
+// Section "Catégories disponibles" retirée - utiliser les raccourcis bureau dans OA Scanner
+const QuickLaunchCards = () => null;
 
 /* ============ FILTERS FORM ============ */
 const CatChip = ({ cat, checked, onChange }) => (
@@ -1708,6 +1655,7 @@ function App() {
         const title = (opp.products.title || '').toLowerCase();
         const brand = (opp.products.brand || '').toLowerCase();
         const ean = opp.products.ean || '';
+        const approvalText = (opp.restrictions.approval_text || '').toLowerCase();
 
         // Livres (ISBN)
         if (ean.startsWith('978') || ean.startsWith('979')) return false;
@@ -1725,6 +1673,25 @@ function App() {
         const pressBrands = ['grazia', 'elle', 'marie claire', 'vogue', 'gala', 'closer'];
         if (pressKeywords.some(kw => title.includes(kw) || brand.includes(kw))) return false;
         if (pressBrands.some(b => brand.includes(b))) return false;
+
+        // BLACKLIST MARQUES MÉDIAS (labels musique, éditeurs livres)
+        const mediaBrandsBlacklist = [
+          // Livres
+          'livre de poche', 'leduc.s editions', 'marabout', 'gallimard', 'actes sud',
+          'j\'ai lu', 'taschen', 'libertalia', 'kimane', 'fleurus', 'hachette india',
+          'odile jacob', 'payot', 'points', 'giboulées', 'gautier languereau',
+          'nobi nobi', 'rivages', 'desclée de brouwer', 'louverture', 'dragon d\'or',
+          'omake books', 'eyrolles', 'de la martinière jeunesse', 'quelle histoire',
+          'auzou', 'livres de collection', 'ign',
+          // Musique
+          'warner music', 'island', 'imports', 'cooking vinyl', '4 a d',
+          'universal music group', 'verycords', 'pias', 'sony music', 'emi',
+          'columbia', 'atlantic',
+          // Vidéo
+          'seven 7', 'pathe', 'warner bros', 'universal pictures', 'paramount'
+        ];
+
+        if (mediaBrandsBlacklist.some(b => approvalText.includes(b))) return false;
 
         return true; // Produit physique valide
       });

@@ -267,7 +267,7 @@ class ScraperHybridV2 {
       console.log(`   ✓ ${existingEANs.size} EAN en cache`);
 
       // Extraire tous les produits
-      const MIN_NEW_PRODUCTS = 20; // MINIMUM 20 nouveaux produits obligatoire
+      const MIN_NEW_PRODUCTS = 5; // MINIMUM 5 nouveaux produits pour passer à Phase 2
       const MAX_LOAD_MORE = 50; // Augmenté pour chercher plus loin
       let loadMoreClicks = 0;
 
