@@ -933,6 +933,90 @@ const HistoryTable = ({ history, onOpen }) => {
   );
 };
 
+/* ============ UNRESTRICTED BRANDS ============ */
+const UnrestrictedBrandsSection = () => {
+  const [brands, setBrands] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [expanded, setExpanded] = useState(false);
+
+  const loadUnrestrictedBrands = async () => {
+    try {
+      // Charger les produits non restreints depuis Supabase
+      const { data, error } = await supabase
+        .from('restrictions')
+        .select(`
+          approval_text,
+          products!inner(brand)
+        `)
+        .eq('is_restricted', false);
+
+      if (error) throw error;
+
+      // Grouper par marque et compter
+      const brandCounts = {};
+      data.forEach(r => {
+        const brand = r.products?.brand || r.approval_text || 'Unknown';
+        brandCounts[brand] = (brandCounts[brand] || 0) + 1;
+      });
+
+      // Convertir en array et trier par nombre de produits
+      const sortedBrands = Object.entries(brandCounts)
+        .map(([name, count]) => ({ name, count }))
+        .sort((a, b) => b.count - a.count);
+
+      setBrands(sortedBrands);
+      setLoading(false);
+    } catch (error) {
+      console.error('Erreur chargement marques non restreintes:', error);
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadUnrestrictedBrands();
+  }, []);
+
+  if (loading) return null;
+  if (brands.length === 0) return null;
+
+  const visible = expanded ? brands : brands.slice(0, 10);
+
+  return (
+    <section className="rounded-xl border border-zinc-200 bg-white shadow-card overflow-hidden">
+      <header className="px-5 py-4 border-b border-zinc-200 flex items-center justify-between">
+        <SectionTitle
+          kicker="Déjà testées"
+          title="Marques non restreintes"
+          subtitle={`${brands.length} marques sans restriction trouvées`}
+        />
+        {brands.length > 10 && (
+          <Button
+            variant="ghost"
+            size="sm"
+            iconRight={<I.Chev size={12} className={cn("transition-transform", expanded && "rotate-180")}/>}
+            onClick={() => setExpanded(e => !e)}
+          >
+            {expanded ? "Réduire" : `Tout voir (${brands.length})`}
+          </Button>
+        )}
+      </header>
+      <div className="px-5 py-4">
+        <div className="flex flex-wrap gap-2">
+          {visible.map((b, i) => (
+            <div
+              key={i}
+              className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-zinc-50 border border-zinc-200 hover:border-zinc-300 transition-colors"
+            >
+              <span className="text-[13px] text-zinc-900 font-medium">{b.name}</span>
+              <span className="mono text-[10px] text-zinc-400 tnum">×{b.count}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+};
+
 /* ============ ASIN RENTABLES VIEW ============ */
 const AsinRentablesView = () => {
   const [activeTab, setActiveTab] = useState('brands');
@@ -1792,6 +1876,7 @@ function App() {
               <PipelineCard progress={progress} scanning={scanning}/>
               <ResultsTable rows={results} openedScan={openedScan} onCloseScan={closeScan}/>
               <HistoryTable history={history} onOpen={openScan}/>
+              <UnrestrictedBrandsSection/>
             </div>
           </>
         ) : (

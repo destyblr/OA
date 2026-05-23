@@ -119,19 +119,13 @@ class AmazonSPAPI {
   }
 
   /**
-   * Vérifier si un produit est Hazmat
-   * NOTE: Endpoint FBA Inbound non disponible dans amazon-sp-api v1.2.1
-   * On utilise le filtre par mots-clés du scan à la place
+   * Vérifier si un produit est Hazmat via FBA Inbound Eligibility API
    */
   async checkHazmat(asin) {
-    // Désactivé temporairement - utiliser filtre par mots-clés
-    return { asin, isHazmat: false, reasons: ['Checked via keyword filter'] };
-
-    /* Code original commenté
     try {
       const result = await this.client.callAPI({
         operation: 'getItemEligibilityPreview',
-        endpoint: 'fba_inbound',
+        endpoint: 'fbaInboundEligibility',
         query: {
           asin: asin,
           program: 'INBOUND',
@@ -142,7 +136,9 @@ class AmazonSPAPI {
       const isHazmat = result.isEligibleForProgram === false &&
         result.ineligibilityReasonList?.some(r =>
           r.toLowerCase().includes('hazmat') ||
-          r.toLowerCase().includes('dangerous')
+          r.toLowerCase().includes('dangerous') ||
+          r.toLowerCase().includes('battery') ||
+          r.toLowerCase().includes('lithium')
         );
 
       return {
@@ -154,7 +150,6 @@ class AmazonSPAPI {
       console.error(`❌ SP-API Check Hazmat Error (${asin}): ${error.message}`);
       return { asin, isHazmat: false, reasons: [] };
     }
-    */
   }
 
   /**

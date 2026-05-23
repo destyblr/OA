@@ -2,6 +2,8 @@ const keepaAPI = require('./keepa-api');
 const spAPI = require('./sp-api');
 const scanTracker = require('./scan-tracker');
 const supabase = require('../config/supabase');
+const fs = require('fs');
+const path = require('path');
 
 /**
  * Plan de rotation sur 32 jours
@@ -36,39 +38,102 @@ const ROTATION_PLAN = [
  * Mots-clés Hazmat pour filtrage rapide
  */
 const HAZMAT_KEYWORDS = [
+  // Produits chimiques/liquides
   'spray', 'aerosol', 'aérosol',
-  'battery', 'batterie', 'lithium',
   'liquide', 'liquid',
   'parfum', 'perfume', 'fragrance',
   'vernis', 'nail polish',
   'flammable', 'inflammable',
   'alcohol', 'alcool',
-  'cleaning', 'nettoyant'
+  'cleaning', 'nettoyant',
+  'colle', 'glue', 'adhesive',
+
+  // Batteries (direct)
+  'battery', 'batterie', 'lithium', 'pile',
+  'rechargeable', 'power bank',
+
+  // Catégories à risque (souvent batteries cachées)
+  // ATTENTION: Peut créer des faux positifs
+  'microphone bluetooth', 'enceinte bluetooth',
+  'speaker bluetooth', 'lampe led rechargeable',
+  'guirlande led', 'éclairage led portable'
 ];
 
 /**
- * Marques Private Label Amazon (à exclure)
+ * Marques Private Label (chargées depuis JSON configurable)
  */
-const PRIVATE_LABEL_BRANDS = [
-  'Amazon Basics',
-  'Amazon Essentials',
-  'Amazon Collection',
-  'Amazon Elements',
-  'Amazon Commercial',
-  'Solimo',
-  'Presto!',
-  'Happy Belly',
-  'Mama Bear',
-  'Pinzon',
-  'Rivet',
-  'Stone & Beam',
-  'Goodthreads',
-  'Daily Ritual',
-  '206 Collective',
-  'Core 10',
-  'Iris & Lilly',
-  'find.'
-];
+let PRIVATE_LABEL_BRANDS = [];
+const BLACKLIST_PATH = path.join(__dirname, '../config/private-label-blacklist.json');
+
+function loadBlacklist() {
+  try {
+    const blacklistData = JSON.parse(fs.readFileSync(BLACKLIST_PATH, 'utf8'));
+    PRIVATE_LABEL_BRANDS = blacklistData.brands.filter(b => !b.startsWith('_'));
+    console.log(`📋 ${PRIVATE_LABEL_BRANDS.length} marques PL chargées depuis blacklist`);
+  } catch (error) {
+    console.warn('⚠️  Impossible de charger private-label-blacklist.json');
+    PRIVATE_LABEL_BRANDS = [
+      'Amazon Basics', 'Amazon Essentials', 'Amazon Collection',
+      'Solimo', 'Presto!', 'Happy Belly', 'Mama Bear',
+      'Amazon Commercial', 'Goodthreads', 'Daily Ritual',
+      'Core 10', 'Iris & Lilly', 'find.', 'Truth & Fable', 'Meraki'
+    ];
+  }
+}
+
+/**
+ * Détecter si une marque ressemble à du PL chinois typique
+ */
+function isSuspiciousChineseBrand(brand) {
+  if (!brand || brand.length < 4) return false;
+
+  const upper = brand.toUpperCase();
+
+  // Pattern 1: Tout en majuscules avec consonnes rares (Y, Z, W, Q, X)
+  const rareConsonants = ['Y', 'Z', 'W', 'Q', 'X'];
+  const startsWithRare = rareConsonants.some(c => upper.startsWith(c));
+  const hasMultipleRare = rareConsonants.filter(c => upper.includes(c)).length >= 2;
+
+  // Pattern 2: Nom incompréhensible (peu de voyelles, beaucoup de consonnes)
+  const vowels = (upper.match(/[AEIOU]/g) || []).length;
+  const consonants = (upper.match(/[BCDFGHJKLMNPQRSTVWXYZ]/g) || []).length;
+  const vowelRatio = vowels / upper.length;
+
+  // Pattern 3: Mélange bizarre de majuscules/minuscules dans un seul mot
+  const hasWeirdCase = brand !== upper && brand !== brand.toLowerCase() &&
+                       !brand.match(/^[A-Z][a-z]+$/); // Pas juste une capitale initiale
+
+  // Détection: au moins 2 critères sur 3
+  const criteria = [
+    startsWithRare || hasMultipleRare,
+    vowelRatio < 0.25 && consonants > 4,
+    hasWeirdCase
+  ].filter(Boolean).length;
+
+  return criteria >= 2;
+}
+
+/**
+ * Ajouter une marque PL à la blacklist automatiquement
+ */
+function addToBlacklist(brand) {
+  try {
+    const blacklistData = JSON.parse(fs.readFileSync(BLACKLIST_PATH, 'utf8'));
+
+    if (!blacklistData.brands.includes(brand)) {
+      blacklistData.brands.push(brand);
+      fs.writeFileSync(BLACKLIST_PATH, JSON.stringify(blacklistData, null, 2), 'utf8');
+      console.log(`   🤖 AUTO-AJOUT à blacklist: ${brand}`);
+      loadBlacklist(); // Recharger
+      return true;
+    }
+  } catch (error) {
+    console.warn(`   ⚠️  Impossible d'ajouter ${brand} à la blacklist: ${error.message}`);
+  }
+  return false;
+}
+
+loadBlacklist();
 
 /**
  * Service principal pour trouver des marques rentables
@@ -484,20 +549,17 @@ class BrandFinder {
       });
       console.log(`   ✅ ${products.length} ASIN après filtre vendeurs\n`);
 
-      // Étape 3 : Vérifier restrictions + Hazmat via SP-API
-      console.log('🔐 Étape 3 : Vérification SP-API (restrictions + Hazmat)\n');
+      // Étape 3 : Vérifier restrictions via SP-API (Hazmat désactivé - pas de permissions)
+      console.log('🔐 Étape 3 : Vérification SP-API (restrictions uniquement)\n');
       for (const product of products) {
         try {
-          const [restrictionStatus, hazmatStatus] = await Promise.all([
-            spAPI.checkRestriction(product.asin),
-            spAPI.checkHazmat(product.asin)
-          ]);
+          const restrictionStatus = await spAPI.checkRestriction(product.asin);
 
           product.isRestricted = restrictionStatus.isRestricted;
           product.restrictionType = restrictionStatus.type;
-          product.isHazmat = hazmatStatus.isHazmat;
+          product.isHazmat = false; // Hazmat déjà filtré par mots-clés
 
-          console.log(`   ${product.asin} - Restreint: ${product.isRestricted ? '✅' : '❌'} | Hazmat: ${product.isHazmat ? '⚠️' : '✅'}`);
+          console.log(`   ${product.asin} - Restreint: ${product.isRestricted ? '🔒' : '✅'}`);
         } catch (error) {
           console.log(`   ❌ ${product.asin} - Erreur SP-API: ${error.message}`);
           product.isRestricted = false;
@@ -505,9 +567,6 @@ class BrandFinder {
           product.isHazmat = false;
         }
       }
-
-      // Retirer les produits Hazmat détectés par SP-API
-      products = products.filter(p => !p.isHazmat);
       console.log(`   ✅ ${products.length} ASIN après vérification SP-API\n`);
 
       // Étape 4 : Sauvegarder les ASIN

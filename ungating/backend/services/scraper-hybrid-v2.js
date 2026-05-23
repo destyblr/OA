@@ -234,9 +234,9 @@ class ScraperHybridV2 {
       if (catConfig.type === 'url') {
         await page.goto(catConfig.url, { waitUntil: 'networkidle2', timeout: 60000 });
       } else {
-        // URL avec filtres: SDM=list (mode liste), SFilt=1!11 (prix ≤10€), sft=1
+        // URL avec filtres: SDM=list (mode liste), SFilt=1!11,2!11 (filtres prix), sft=1
         const keyword = encodeURIComponent(catConfig.keyword);
-        const url = `https://www.fnacpro.com/SearchResult/ResultList.aspx?SDM=list&Search=${keyword}&SFilt=1!11&sft=1`;
+        const url = `https://www.fnacpro.com/SearchResult/ResultList.aspx?SDM=list&Search=${keyword}&SFilt=1!11%2c2!11&sft=1`;
         await page.goto(url, {
           waitUntil: 'networkidle2',
           timeout: 60000
@@ -267,14 +267,22 @@ class ScraperHybridV2 {
       console.log(`   ✓ ${existingEANs.size} EAN en cache`);
 
       // Extraire tous les produits
-      const MIN_NEW_PRODUCTS = 5; // MINIMUM 5 nouveaux produits pour passer à Phase 2
-      const MAX_LOAD_MORE = 50; // Augmenté pour chercher plus loin
+      const MIN_NEW_PRODUCTS = 1; // MINIMUM 1 produit pour passer à Phase 2
+      const MAX_LOAD_MORE = 50; // Limite de sécurité (nb pages max)
+      const TIMEOUT_MS = 3 * 60 * 1000; // 3 MINUTES MAX - seule vraie limite
       let loadMoreClicks = 0;
 
       const processedUrls = new Set(); // URLs déjà vues
       let skipped = 0;
+      const startTime = Date.now(); // Chrono de début
 
-      while (products.length < MIN_NEW_PRODUCTS && loadMoreClicks < MAX_LOAD_MORE) {
+      while (loadMoreClicks < MAX_LOAD_MORE) {
+        // Vérifier timeout (SEULE VRAIE LIMITE)
+        const elapsed = Date.now() - startTime;
+        if (elapsed > TIMEOUT_MS) {
+          console.log(`   ⏱️ TIMEOUT 3min - ${products.length} produits trouvés`);
+          break;
+        }
         // Extraire liens visibles
         const productLinks = await page.evaluate(() => {
           return Array.from(document.querySelectorAll('a.Article-title')).map(a => ({
@@ -332,15 +340,9 @@ class ScraperHybridV2 {
           }
         }
 
-        // Vérifier si on a assez de nouveaux produits
-        if (products.length >= MIN_NEW_PRODUCTS) {
-          console.log(`   ✅ Objectif atteint: ${products.length} nouveaux produits`);
-          break;
-        }
-
         // Aller à la page suivante (via URL PageIndex)
         try {
-          console.log(`   📄 Page ${loadMoreClicks + 2} | ${products.length}/${MIN_NEW_PRODUCTS} nouveaux produits...`);
+          console.log(`   📄 Page ${loadMoreClicks + 2} | ${products.length} produits trouvés...`);
 
           // Récupérer l'URL actuelle et incrémenter PageIndex
           const currentUrl = page.url();
@@ -367,12 +369,15 @@ class ScraperHybridV2 {
       }
 
       // Vérification finale
-      if (products.length < MIN_NEW_PRODUCTS) {
-        console.log(`\n   ⚠️ ATTENTION: Seulement ${products.length}/${MIN_NEW_PRODUCTS} nouveaux produits trouvés`);
-        console.log(`   💡 Il faudrait peut-être élargir les filtres de prix ou essayer une autre catégorie\n`);
+      const totalTime = Math.round((Date.now() - startTime) / 1000);
+      if (products.length === 0) {
+        console.log(`\n   ⚠️ AUCUN PRODUIT en ${totalTime}s (${skipped} skippés)`);
+        console.log(`   💡 → Passage Phase 2 annulé\n`);
+      } else {
+        console.log(`\n   ✅ SUCCÈS: ${products.length} produits en ${totalTime}s (${skipped} skippés) → Phase 2`);
       }
 
-      console.log(`\n   ✅ Catégorie terminée: ${products.length} nouveaux produits | ${skipped} skippés\n`);
+      console.log(`\n   📊 Résumé: ${products.length} nouveaux | ${skipped} skippés | ${totalTime}s\n`);
     } catch (err) {
       console.error(`   ❌ Erreur catégorie: ${err.message}`);
     } finally {

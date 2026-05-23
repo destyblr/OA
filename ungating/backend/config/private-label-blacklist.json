@@ -1,0 +1,24 @@
+{
+  "description": "Liste des marques Private Label à exclure des scans",
+  "comment": "Ajoute les marques PL que tu découvres ici",
+  "brands": [
+    "Amazon Basics",
+    "Amazon Essentials",
+    "Amazon Collection",
+    "Solimo",
+    "Presto!",
+    "Happy Belly",
+    "Mama Bear",
+    "Amazon Commercial",
+    "Goodthreads",
+    "Daily Ritual",
+    "Core 10",
+    "Iris & Lilly",
+    "find.",
+    "Truth & Fable",
+    "Meraki",
+    "ShinePick",
+    "TOCOL",
+    "MYCARBON"
+  ]
+}

@@ -121,18 +121,33 @@ class UngatingService {
         }));
       }
 
-      // Mettre à jour le scan
-      await supabase
-        .from('scans')
-        .update({
-          status: 'completed',
-          results_count: results.length,
-          total_cost: results.reduce((sum, r) => sum + (r.costTTC || 0), 0)
-        })
-        .eq('id', scanId);
+      // Si 0 opportunités → supprimer le scan (ne pas polluer l'historique)
+      if (results.length === 0) {
+        console.log(`\n⚠️ SCAN ${scanId}: 0 opportunités trouvées → suppression du scan\n`);
+        await supabase
+          .from('scans')
+          .delete()
+          .eq('id', scanId);
 
-      updateProgress('complete', 100, {});
-      io.emit(`scan:${scanId}:complete`, results);
+        updateProgress('complete', 100, {});
+        io.emit(`scan:${scanId}:complete`, {
+          message: 'Aucun produit restreint trouvé',
+          results: []
+        });
+      } else {
+        // Mettre à jour le scan avec les résultats
+        await supabase
+          .from('scans')
+          .update({
+            status: 'completed',
+            results_count: results.length,
+            total_cost: results.reduce((sum, r) => sum + (r.costTTC || 0), 0)
+          })
+          .eq('id', scanId);
+
+        updateProgress('complete', 100, {});
+        io.emit(`scan:${scanId}:complete`, results);
+      }
 
       await scraper.close();
 
