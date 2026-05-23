@@ -463,6 +463,27 @@ class BrandFinder {
       });
       console.log(`   ✅ ${products.length} ASIN après filtre Private Label\n`);
 
+      // Étape 2c : Filtre Amazon présent (double sécurité Keepa)
+      console.log('🛒 Étape 2c : Filtre Amazon présent\n');
+      products = products.filter(p => {
+        if (p.amazonPresent) {
+          console.log(`   ❌ SKIP ${p.asin} : Amazon est vendeur`);
+        }
+        return !p.amazonPresent;
+      });
+      console.log(`   ✅ ${products.length} ASIN après filtre Amazon\n`);
+
+      // Étape 2d : Filtre vendeurs (max 5) (double sécurité Keepa)
+      console.log('👥 Étape 2d : Filtre vendeurs (max 5)\n');
+      products = products.filter(p => {
+        const tooManySellers = p.sellerCount > 5;
+        if (tooManySellers) {
+          console.log(`   ❌ SKIP ${p.asin} : Trop de vendeurs (${p.sellerCount})`);
+        }
+        return !tooManySellers;
+      });
+      console.log(`   ✅ ${products.length} ASIN après filtre vendeurs\n`);
+
       // Étape 3 : Vérifier restrictions + Hazmat via SP-API
       console.log('🔐 Étape 3 : Vérification SP-API (restrictions + Hazmat)\n');
       for (const product of products) {
