@@ -941,14 +941,18 @@ const UnrestrictedBrandsSection = () => {
 
   const loadUnrestrictedBrands = async () => {
     try {
+      console.log('[DEBUG] Chargement marques non restreintes...');
+
       // Charger les produits non restreints depuis Supabase
       const { data, error } = await supabase
         .from('restrictions')
         .select(`
           approval_text,
-          products!inner(brand)
+          products(brand)
         `)
         .eq('is_restricted', false);
+
+      console.log('[DEBUG] Résultat Supabase:', { data, error, count: data?.length });
 
       if (error) throw error;
 
@@ -964,10 +968,12 @@ const UnrestrictedBrandsSection = () => {
         .map(([name, count]) => ({ name, count }))
         .sort((a, b) => b.count - a.count);
 
+      console.log('[DEBUG] Marques groupées:', sortedBrands.length, sortedBrands.slice(0, 5));
+
       setBrands(sortedBrands);
       setLoading(false);
     } catch (error) {
-      console.error('Erreur chargement marques non restreintes:', error);
+      console.error('❌ Erreur chargement marques non restreintes:', error);
       setLoading(false);
     }
   };
