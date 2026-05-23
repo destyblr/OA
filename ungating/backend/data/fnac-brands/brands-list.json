@@ -1,0 +1,41 @@
+{
+  "generated": "2026-05-23T18:15:27.018Z",
+  "totalBrands": 5,
+  "brands": [
+    {
+      "name": "BaByliss",
+      "slug": "babyliss",
+      "category": "Beauté",
+      "scanned": false,
+      "lastScan": null
+    },
+    {
+      "name": "Philips",
+      "slug": "philips",
+      "category": "Électroménager",
+      "scanned": false,
+      "lastScan": null
+    },
+    {
+      "name": "Rowenta",
+      "slug": "rowenta",
+      "category": "Électroménager",
+      "scanned": false,
+      "lastScan": null
+    },
+    {
+      "name": "Dyson",
+      "slug": "dyson",
+      "category": "Électroménager",
+      "scanned": false,
+      "lastScan": null
+    },
+    {
+      "name": "Lego",
+      "slug": "lego",
+      "category": "Jouets",
+      "scanned": false,
+      "lastScan": null
+    }
+  ]
+}

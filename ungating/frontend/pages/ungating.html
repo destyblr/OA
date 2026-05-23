@@ -1045,16 +1045,21 @@ const AsinRentablesView = () => {
   const [scanHistory, setScanHistory] = useState([]);
   const [brands, setBrands] = useState([]);
   const [asins, setAsins] = useState([]);
+  const [profitableAsins, setProfitableAsins] = useState([]);
   const [showAllHistory, setShowAllHistory] = useState(false);
   const [brandsPage, setBrandsPage] = useState(1);
   const [asinsPage, setAsinsPage] = useState(1);
+  const [profitableAsinsPage, setProfitableAsinsPage] = useState(1);
   const [filters, setFilters] = useState({
     category: '',
     hasFNAC: '',
     sortBy: 'priority_score',
     asinBrand: '',
     asinCategory: '',
-    asinRestricted: ''
+    asinRestricted: '',
+    profitableBrand: '',
+    profitableCategory: '',
+    profitableSort: 'bsr_asc'
   });
 
   const loadStats = async () => {
@@ -1142,6 +1147,27 @@ const AsinRentablesView = () => {
     }
   };
 
+  const loadProfitableAsins = async () => {
+    try {
+      let query = supabase.from('profitable_asins').select('*');
+
+      if (filters.profitableBrand) {
+        query = query.ilike('brand', `%${filters.profitableBrand}%`);
+      }
+      if (filters.profitableCategory) {
+        query = query.eq('category', filters.profitableCategory);
+      }
+
+      const { data, error } = await query
+        .order('scanned_at', { ascending: false })
+        .limit(200);
+
+      if (!error) setProfitableAsins(data || []);
+    } catch (error) {
+      console.error('Error loading profitable ASINs:', error);
+    }
+  };
+
   // Trier les ASIN selon l'option choisie
   const sortedAsins = useMemo(() => {
     if (!asins || asins.length === 0) return [];
@@ -1164,6 +1190,28 @@ const AsinRentablesView = () => {
     }
   }, [asins, filters.asinSort]);
 
+  // Trier les ASIN rentables
+  const sortedProfitableAsins = useMemo(() => {
+    if (!profitableAsins || profitableAsins.length === 0) return [];
+    const sorted = [...profitableAsins];
+    const sortType = filters.profitableSort || 'bsr_asc';
+
+    switch(sortType) {
+      case 'bsr_asc':
+        return sorted.sort((a, b) => (a.bsr || 999999) - (b.bsr || 999999));
+      case 'bsr_desc':
+        return sorted.sort((a, b) => (b.bsr || 0) - (a.bsr || 0));
+      case 'price_asc':
+        return sorted.sort((a, b) => (a.price_amazon || 999999) - (b.price_amazon || 999999));
+      case 'price_desc':
+        return sorted.sort((a, b) => (b.price_amazon || 0) - (a.price_amazon || 0));
+      case 'date_desc':
+        return sorted.sort((a, b) => new Date(b.scanned_at || 0) - new Date(a.scanned_at || 0));
+      default:
+        return sorted;
+    }
+  }, [profitableAsins, filters.profitableSort]);
+
   // Pagination
   const displayedHistory = useMemo(() => {
     return showAllHistory ? scanHistory : scanHistory.slice(0, 5);
@@ -1179,8 +1227,14 @@ const AsinRentablesView = () => {
     return sortedAsins.slice(start, start + 25);
   }, [sortedAsins, asinsPage]);
 
+  const paginatedProfitableAsins = useMemo(() => {
+    const start = (profitableAsinsPage - 1) * 25;
+    return sortedProfitableAsins.slice(start, start + 25);
+  }, [sortedProfitableAsins, profitableAsinsPage]);
+
   const totalBrandPages = Math.ceil(brands.length / 10);
   const totalAsinPages = Math.ceil(sortedAsins.length / 25);
+  const totalProfitableAsinPages = Math.ceil(sortedProfitableAsins.length / 25);
 
   const scanNow = async () => {
     try {
@@ -1208,9 +1262,12 @@ const AsinRentablesView = () => {
     if (activeTab === 'brands') {
       loadBrands();
       setBrandsPage(1);
-    } else {
+    } else if (activeTab === 'asins') {
       loadAsins();
       setAsinsPage(1);
+    } else if (activeTab === 'profitable') {
+      loadProfitableAsins();
+      setProfitableAsinsPage(1);
     }
   }, [filters, activeTab]);
 
@@ -1284,6 +1341,14 @@ const AsinRentablesView = () => {
               activeTab === 'asins' ? "border-cobalt-500 text-cobalt-600" : "border-transparent text-zinc-600 hover:text-zinc-900"
             )}>
             📦 ASIN récents
+          </button>
+          <button
+            onClick={() => setActiveTab('profitable')}
+            className={cn(
+              "px-4 py-2 font-semibold border-b-2 transition-colors",
+              activeTab === 'profitable' ? "border-cobalt-500 text-cobalt-600" : "border-transparent text-zinc-600 hover:text-zinc-900"
+            )}>
+            🏆 ASIN Rentables
           </button>
         </div>
 
@@ -1537,6 +1602,145 @@ const AsinRentablesView = () => {
                     variant="ghost"
                     disabled={asinsPage === totalAsinPages}
                     onClick={() => setAsinsPage(asinsPage + 1)}
+                    iconRight={<I.ChevronRight size={14}/>}
+                  >
+                    Suivant
+                  </Button>
+                </div>
+              )}
+            </section>
+          </div>
+        )}
+
+        {/* Content Profitable ASINs */}
+        {activeTab === 'profitable' && (
+          <div>
+            <div className="flex items-center gap-4 mb-4">
+              <input
+                type="text"
+                placeholder="Filtrer par marque..."
+                value={filters.profitableBrand}
+                onChange={(e) => setFilters({...filters, profitableBrand: e.target.value})}
+                className="px-4 py-2 border border-zinc-200 rounded-lg text-[13px] focus:outline-none focus:ring-2 focus:ring-cobalt-500"
+              />
+              <select
+                value={filters.profitableCategory}
+                onChange={(e) => setFilters({...filters, profitableCategory: e.target.value})}
+                className="px-4 py-2 border border-zinc-200 rounded-lg text-[13px] focus:outline-none focus:ring-2 focus:ring-cobalt-500">
+                <option value="">Toutes catégories</option>
+                <option value="Hygiène et Santé">Hygiène et Santé</option>
+                <option value="Beauté">Beauté</option>
+                <option value="Électroménager">Électroménager</option>
+                <option value="Jouets">Jouets</option>
+              </select>
+              <select
+                value={filters.profitableSort || 'bsr_asc'}
+                onChange={(e) => setFilters({...filters, profitableSort: e.target.value})}
+                className="px-4 py-2 border border-zinc-200 rounded-lg text-[13px] focus:outline-none focus:ring-2 focus:ring-cobalt-500">
+                <option value="bsr_asc">BSR croissant</option>
+                <option value="bsr_desc">BSR décroissant</option>
+                <option value="price_asc">Prix croissant</option>
+                <option value="price_desc">Prix décroissant</option>
+                <option value="date_desc">Plus récents</option>
+              </select>
+              <Button variant="accent" size="sm" icon={<I.Filter size={12}/>} onClick={loadProfitableAsins}>Filtrer</Button>
+              <div className="text-[13px] text-zinc-600">{sortedProfitableAsins.length} ASIN ({paginatedProfitableAsins.length} affichés)</div>
+            </div>
+            <section className="rounded-xl border border-zinc-200 bg-white shadow-card overflow-hidden">
+              <table className="w-full">
+                <thead className="bg-zinc-50/70 border-b border-zinc-200">
+                  <tr>
+                    <th className="px-4 py-2.5 text-left mono text-[10px] uppercase tracking-[0.15em] text-zinc-500 font-medium">Image</th>
+                    <th className="px-4 py-2.5 text-left mono text-[10px] uppercase tracking-[0.15em] text-zinc-500 font-medium">ASIN</th>
+                    <th className="px-4 py-2.5 text-left mono text-[10px] uppercase tracking-[0.15em] text-zinc-500 font-medium">Marque</th>
+                    <th className="px-4 py-2.5 text-left mono text-[10px] uppercase tracking-[0.15em] text-zinc-500 font-medium">Titre</th>
+                    <th className="px-4 py-2.5 text-left mono text-[10px] uppercase tracking-[0.15em] text-zinc-500 font-medium cursor-help" title="Best Seller Rank">BSR</th>
+                    <th className="px-4 py-2.5 text-left mono text-[10px] uppercase tracking-[0.15em] text-zinc-500 font-medium">Prix</th>
+                    <th className="px-4 py-2.5 text-left mono text-[10px] uppercase tracking-[0.15em] text-zinc-500 font-medium">Rating</th>
+                    <th className="px-4 py-2.5 text-left mono text-[10px] uppercase tracking-[0.15em] text-zinc-500 font-medium">Avis</th>
+                    <th className="px-4 py-2.5 text-left mono text-[10px] uppercase tracking-[0.15em] text-zinc-500 font-medium">Vendeurs</th>
+                    <th className="px-4 py-2.5 text-left mono text-[10px] uppercase tracking-[0.15em] text-zinc-500 font-medium">Scanné</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {sortedProfitableAsins.length === 0 ? (
+                    <tr><td colSpan={10} className="px-4 py-8 text-center text-zinc-500">Aucun ASIN rentable trouvé. Lancez un scan de marque pour commencer.</td></tr>
+                  ) : (
+                    paginatedProfitableAsins.map((asin, i) => (
+                      <tr key={i} className="border-b border-zinc-150 row">
+                        <td className="px-4 py-3">
+                          {asin.image_url ? (
+                            <img src={asin.image_url} alt={asin.title} className="w-12 h-12 object-contain rounded border border-zinc-200" />
+                          ) : (
+                            <div className="w-12 h-12 bg-zinc-100 rounded border border-zinc-200 flex items-center justify-center text-zinc-400 text-[10px]">N/A</div>
+                          )}
+                        </td>
+                        <td className="px-4 py-3">
+                          <a href={`https://www.amazon.fr/dp/${asin.asin}`} target="_blank" rel="noopener" className="mono text-[12px] text-cobalt-600 hover:underline">
+                            {asin.asin}
+                          </a>
+                        </td>
+                        <td className="px-4 py-3 text-[13px] font-medium">{asin.brand}</td>
+                        <td className="px-4 py-3 text-[13px] truncate max-w-[250px]" title={asin.title}>{asin.title}</td>
+                        <td className="px-4 py-3 text-[13px]">
+                          {asin.bsr ? (
+                            <span className={cn(
+                              "font-medium",
+                              asin.bsr < 1000 ? "text-emerald-600" : asin.bsr < 10000 ? "text-cobalt-600" : "text-zinc-900"
+                            )}>
+                              {asin.bsr.toLocaleString()}
+                            </span>
+                          ) : (
+                            <span className="text-zinc-400">--</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 text-[13px] font-medium">
+                          {asin.price_amazon && asin.price_amazon > 0 ? (
+                            `${asin.price_amazon.toFixed(2)}€`
+                          ) : (
+                            <span className="text-zinc-400">--</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3">
+                          {asin.rating && asin.rating > 0 ? (
+                            <div className="flex items-center gap-1">
+                              <Stars value={Math.floor(asin.rating)} size={10}/>
+                              <span className="text-[11px] text-zinc-500">({asin.rating.toFixed(1)})</span>
+                            </div>
+                          ) : (
+                            <span className="text-zinc-400">--</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 mono text-[12px] text-zinc-600">
+                          {asin.reviews_count ? asin.reviews_count.toLocaleString() : '--'}
+                        </td>
+                        <td className="px-4 py-3 mono text-[12px]">{asin.sellers_count || 0}</td>
+                        <td className="px-4 py-3 text-[12px] text-zinc-500">{timeAgo(asin.scanned_at)}</td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+              {/* Pagination Profitable ASIN */}
+              {totalProfitableAsinPages > 1 && (
+                <div className="px-5 py-4 border-t border-zinc-200 flex items-center justify-center gap-2">
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    disabled={profitableAsinsPage === 1}
+                    onClick={() => setProfitableAsinsPage(profitableAsinsPage - 1)}
+                    icon={<I.ChevronLeft size={14}/>}
+                  >
+                    Précédent
+                  </Button>
+                  <span className="text-[13px] text-zinc-600">
+                    Page {profitableAsinsPage} / {totalProfitableAsinPages}
+                  </span>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    disabled={profitableAsinsPage === totalProfitableAsinPages}
+                    onClick={() => setProfitableAsinsPage(profitableAsinsPage + 1)}
                     iconRight={<I.ChevronRight size={14}/>}
                   >
                     Suivant
