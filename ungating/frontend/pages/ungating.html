@@ -943,20 +943,29 @@ const UnrestrictedBrandsSection = () => {
     try {
       console.log('[DEBUG] Chargement marques non restreintes...');
 
-      // Charger les restrictions non restreintes (utiliser approval_text comme nom de marque)
-      const { data, error } = await supabase
+      // 1. Charger les ASIN non restreints
+      const { data: restrictions, error: err1 } = await supabase
         .from('restrictions')
-        .select('approval_text')
+        .select('asin')
         .eq('is_restricted', false);
 
-      console.log('[DEBUG] Résultat Supabase:', { data, error, count: data?.length });
+      if (err1) throw err1;
+      console.log('[DEBUG] Restrictions non restreintes:', restrictions?.length);
 
-      if (error) throw error;
+      // 2. Charger les produits correspondants pour récupérer les marques
+      const asins = restrictions.map(r => r.asin);
+      const { data: products, error: err2 } = await supabase
+        .from('products')
+        .select('asin, brand')
+        .in('asin', asins);
 
-      // Grouper par marque et compter
+      if (err2) throw err2;
+      console.log('[DEBUG] Produits trouvés:', products?.length);
+
+      // 3. Grouper par marque et compter
       const brandCounts = {};
-      data.forEach(r => {
-        const brand = r.approval_text || 'Unknown';
+      products.forEach(p => {
+        const brand = p.brand || 'Unknown';
         brandCounts[brand] = (brandCounts[brand] || 0) + 1;
       });
 
