@@ -405,7 +405,7 @@ const Topbar = ({ onRun, scanning, onRefresh, loading }) => (
 );
 
 /* ============ PAGE HEADING + KPI ============ */
-const PageHero = ({ results }) => {
+const PageHero = ({ results, openedScan }) => {
   // Calculer les stats dynamiquement
   const totalOpportunities = results.length;
   const uniqueBrands = new Set(results.map(r => r.brand)).size;
@@ -428,15 +428,12 @@ const PageHero = ({ results }) => {
         <div>
           <div className="mono text-[10.5px] uppercase tracking-[0.18em] text-zinc-500 mb-2"></div>
           <h1 className="text-[24px] md:text-[28px] font-semibold tracking-[-0.025em] text-zinc-900 leading-none">Ungating</h1>
-          <p className="text-[13.5px] text-zinc-500 mt-2 max-w-xl leading-snug">
-            Croisement FNAC Pro ↔ Amazon FR : on identifie les produits dont l'achat lève une restriction de catalogue, automatiquement.
-          </p>
         </div>
-        {totalOpportunities > 0 && (
+        {totalOpportunities > 0 && openedScan && (
           <div className="flex items-center gap-2.5 text-[12px] text-zinc-500 mono uppercase tracking-wider">
             <I.Clock size={13} className="text-zinc-400"/>
-            <span>Dernier scan</span>
-            <span className="text-zinc-900 normal-case tracking-normal">maintenant · {totalOpportunities} résultats</span>
+            <span>Scan</span>
+            <span className="text-zinc-900 normal-case tracking-normal">{openedScan.date} · {totalOpportunities} résultats</span>
           </div>
         )}
       </div>
@@ -1898,13 +1895,13 @@ function App() {
         {activeView === 'ungating' ? (
           <>
             <Topbar onRun={start} scanning={scanning} onRefresh={loadResultsFromSupabase} loading={loading}/>
-            <PageHero results={results}/>
+            <PageHero results={results} openedScan={openedScan}/>
             <div className="px-4 md:px-7 pb-10 space-y-6">
               <QuickLaunchCards/>
               <PipelineCard progress={progress} scanning={scanning}/>
               <ResultsTable rows={results} openedScan={openedScan} onCloseScan={closeScan}/>
               <HistoryTable history={history} onOpen={openScan}/>
-              <UnrestrictedBrandsSection/>
+              {/* <UnrestrictedBrandsSection/> */}
             </div>
           </>
         ) : (
