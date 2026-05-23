@@ -962,10 +962,22 @@ const UnrestrictedBrandsSection = () => {
       if (err2) throw err2;
       console.log('[DEBUG] Produits trouvés:', products?.length);
 
-      // 3. Grouper par marque et compter
+      // 3. Extraire marques depuis les titres si brand="Unknown"
+      const extractBrandFromTitle = (title) => {
+        if (!title) return 'Unknown';
+        const blacklist = ['Jeu', 'Livre', 'DVD', 'Blu', 'Ray', 'Stickers', 'Rasoir', 'Brosse', 'Lisseur', 'Tondeuse', 'Sèche'];
+        const words = title.split(' ');
+        const brand = words.find(w => {
+          // Chercher un mot capitalisé de 3+ lettres, pas dans la blacklist
+          return /^[A-Z][a-zA-Z]{2,}/.test(w) && !blacklist.includes(w);
+        });
+        return brand || 'Unknown';
+      };
+
+      // 4. Grouper par marque et compter
       const brandCounts = {};
       products.forEach(p => {
-        const brand = p.brand || 'Unknown';
+        const brand = (p.brand === 'Unknown' || !p.brand) ? extractBrandFromTitle(p.title) : p.brand;
         brandCounts[brand] = (brandCounts[brand] || 0) + 1;
       });
 
