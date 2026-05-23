@@ -943,13 +943,10 @@ const UnrestrictedBrandsSection = () => {
     try {
       console.log('[DEBUG] Chargement marques non restreintes...');
 
-      // Charger les produits non restreints depuis Supabase
+      // Charger les restrictions non restreintes (utiliser approval_text comme nom de marque)
       const { data, error } = await supabase
         .from('restrictions')
-        .select(`
-          approval_text,
-          products(brand)
-        `)
+        .select('approval_text')
         .eq('is_restricted', false);
 
       console.log('[DEBUG] Résultat Supabase:', { data, error, count: data?.length });
@@ -959,7 +956,7 @@ const UnrestrictedBrandsSection = () => {
       // Grouper par marque et compter
       const brandCounts = {};
       data.forEach(r => {
-        const brand = r.products?.brand || r.approval_text || 'Unknown';
+        const brand = r.approval_text || 'Unknown';
         brandCounts[brand] = (brandCounts[brand] || 0) + 1;
       });
 
@@ -1639,7 +1636,11 @@ function App() {
         const months = ["jan","fév","mar","avr","mai","juin","juil","aoû","sep","oct","nov","déc"];
         const dateStr = `${dd} ${months[localDate.getMonth()]} · ${String(localDate.getHours()).padStart(2,"0")}:${String(localDate.getMinutes()).padStart(2,"0")}`;
 
-        const catLabels = (scan.categories || []).map(id => CATS.find(c=>c.id===id)?.label).filter(Boolean);
+        // Détecter si c'est une catégorie (dans CATS) ou une marque (texte direct)
+        const catLabels = (scan.categories || []).map(id => {
+          const cat = CATS.find(c => c.id === id);
+          return cat ? cat.label : id; // Si pas dans CATS, c'est une marque → utiliser directement
+        }).filter(Boolean);
         const filtersStr = `${catLabels.slice(0,2).join(", ")}${catLabels.length>2?` +${catLabels.length-2}`:""} · ≤ ${scan.max_price}€`;
 
         return {
@@ -1648,7 +1649,7 @@ function App() {
           filters: filtersStr,
           results: scan.results_count || 0,
           cost: scan.total_cost || 0,
-          status: scan.status === 'completed' ? 'Terminé' : scan.status === 'running' ? 'En cours' : 'Échoué'
+          status: scan.status === 'completed' ? 'done' : scan.status === 'running' ? 'running' : 'failed'
         };
       });
 
