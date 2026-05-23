@@ -4,6 +4,8 @@ const scraper = require('./scraper-hybrid-v2');
 class UngatingService {
   constructor() {
     this.activeScans = new Map();
+    this.scanQueue = [];
+    this.isProcessing = false;
   }
 
   /**
@@ -20,7 +22,7 @@ class UngatingService {
         .insert({
           max_price: maxPrice,
           categories: cats,
-          status: 'running'
+          status: 'queued'
         })
         .select()
         .single();
@@ -29,32 +31,79 @@ class UngatingService {
 
       const scanId = scan.id.toString();
 
-      // Initialiser le tracking
-      this.activeScans.set(scanId, {
-        id: scanId,
-        progress: 0,
-        stage: 'metro',
-        stats: {
-          productsScraped: 0,
-          eansMatched: 0,
-          asinsChecked: 0,
-          restrictionsFound: 0
-        }
+      // Ajouter à la queue au lieu de lancer immédiatement
+      this.scanQueue.push({
+        scanId,
+        maxPrice,
+        cats,
+        io
       });
 
-      // Lancer le scan en background
-      this.runScan(scanId, maxPrice, cats, io).catch(err => {
-        console.error(`Error in scan ${scanId}:`, err);
-      });
+      const position = this.scanQueue.length;
+      console.log(`📋 Scan ${scanId} ajouté à la queue (position: ${position})`);
+
+      // Lancer le traitement de la queue
+      this.processQueue();
 
       return {
         scanId,
-        status: 'started'
+        status: position === 1 && !this.isProcessing ? 'started' : 'queued',
+        queuePosition: position
       };
     } catch (error) {
       console.error('Error starting scan:', error);
       throw error;
     }
+  }
+
+  /**
+   * Traite la queue de scans (un seul à la fois)
+   */
+  async processQueue() {
+    // Si déjà en train de traiter ou queue vide, ne rien faire
+    if (this.isProcessing || this.scanQueue.length === 0) {
+      return;
+    }
+
+    // Marquer comme en cours
+    this.isProcessing = true;
+
+    // Prendre le premier scan de la queue
+    const { scanId, maxPrice, cats, io } = this.scanQueue.shift();
+
+    console.log(`🚀 Démarrage scan ${scanId} (${this.scanQueue.length} en attente)`);
+
+    // Mettre à jour le statut en DB
+    await supabase
+      .from('scans')
+      .update({ status: 'running' })
+      .eq('id', scanId);
+
+    // Initialiser le tracking
+    this.activeScans.set(scanId, {
+      id: scanId,
+      progress: 0,
+      stage: 'metro',
+      stats: {
+        productsScraped: 0,
+        eansMatched: 0,
+        asinsChecked: 0,
+        restrictionsFound: 0
+      }
+    });
+
+    try {
+      // Exécuter le scan
+      await this.runScan(scanId, maxPrice, cats, io);
+    } catch (err) {
+      console.error(`Error in scan ${scanId}:`, err);
+    }
+
+    // Marquer comme terminé
+    this.isProcessing = false;
+
+    // Traiter le scan suivant
+    this.processQueue();
   }
 
   /**

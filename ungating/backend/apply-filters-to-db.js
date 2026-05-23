@@ -55,6 +55,76 @@ function isPrivateLabel(brand) {
   );
 }
 
+/**
+ * Détecter si une marque ressemble à du PL chinois typique
+ */
+function isSuspiciousChineseBrand(brand) {
+  if (!brand || brand.length < 4) return false;
+
+  // Ignorer marques avec espaces (noms composés légitimes)
+  if (brand.includes(' ')) return false;
+
+  const upper = brand.toUpperCase();
+
+  // Whitelist: marques connues légitimes qui pourraient matcher les patterns
+  const knownLegit = ['LEGO', 'NERF', 'HASBRO', 'FISHER', 'PRICE'];
+  if (knownLegit.some(w => upper.includes(w))) return false;
+
+  // Pattern 1: Consonnes rares typiques PL chinois (Y, Z, W, Q, X en début)
+  const rareConsonants = ['Y', 'Z', 'W', 'Q', 'X'];
+  const startsWithRare = rareConsonants.some(c => upper.startsWith(c));
+
+  // Pattern 2: Ratio voyelles/consonnes suspect
+  const vowels = (upper.match(/[AEIOU]/g) || []).length;
+  const letters = (upper.match(/[A-Z]/g) || []).length;
+  const vowelRatio = vowels / letters;
+
+  // Pattern 3: Consonnes multiples au début (Mtsooning, Jradse)
+  const startsWithMultipleConsonants = /^[BCDFGHJKLMNPQRSTVWXYZ]{3,}/.test(upper);
+
+  // Pattern 4: Nom incompréhensible (consonnes groupées bizarres)
+  const hasWeirdPattern = /[BCDFGHJKLMNPQRSTVWXYZ]{4,}/.test(upper) || // 4+ consonnes consécutives
+                          /[QX][^UAEIOU]/.test(upper) || // Q/X pas suivi de voyelle
+                          /TSN|KQG|NTSN|DSE/.test(upper); // Séquences improbables
+
+  // Pattern 5: Tout en majuscules, court, peu de voyelles
+  const allCaps = brand === upper && brand.length >= 5 && brand.length <= 10;
+  const commonWords = ['TECH', 'SHOP', 'PLAY', 'TOYS', 'BABY', 'KIDS', 'HOME', 'PRO', 'MAX', 'PLUS', 'STAR'];
+  const hasCommonWord = commonWords.some(w => upper.includes(w));
+
+  // Détection ultra-agressive pour noms incompréhensibles
+  if (startsWithRare && vowelRatio < 0.4) return true; // YANJINGHE, WYRIAZA, XSHOT
+  if (hasWeirdPattern) return true; // Dhqkqg, Mtsooning
+  if (startsWithMultipleConsonants && vowelRatio < 0.35) return true; // Jradse
+  if (allCaps && !hasCommonWord && vowelRatio < 0.4) return true; // AUYAO, PATIFEED, ANSTEN
+  if (allCaps && brand.length <= 7 && vowelRatio < 0.45) return true; // Kekeso
+
+  return false;
+}
+
+/**
+ * Ajouter une marque PL à la blacklist automatiquement
+ */
+function addToBlacklist(brand) {
+  try {
+    const blacklistPath = path.join(__dirname, 'config/private-label-blacklist.json');
+    const blacklistData = JSON.parse(fs.readFileSync(blacklistPath, 'utf8'));
+
+    if (!blacklistData.brands.includes(brand)) {
+      blacklistData.brands.push(brand);
+      fs.writeFileSync(blacklistPath, JSON.stringify(blacklistData, null, 2), 'utf8');
+      console.log(`   🤖 AUTO-AJOUT à blacklist: ${brand}`);
+
+      // Recharger la blacklist
+      PRIVATE_LABEL_BRANDS = blacklistData.brands.filter(b => !b.startsWith('_'));
+      return true;
+    }
+  } catch (error) {
+    console.warn(`   ⚠️  Impossible d'ajouter ${brand} à la blacklist: ${error.message}`);
+  }
+  return false;
+}
+
 async function applyFilters() {
   console.log('🔄 Application des filtres sur la base existante\n');
   console.log('='.repeat(60));
@@ -73,22 +143,38 @@ async function applyFilters() {
     // 2. Identifier les produits à supprimer
     let hazmatCount = 0;
     let plCount = 0;
+    let plChineseCount = 0;
     const asinsToDelete = [];
 
     for (const product of products) {
-      const productHazmat = isHazmat(product.title || '', product.brand || '');
-      const productPL = isPrivateLabel(product.brand || '');
+      const brandName = product.brand || '';
+      const productHazmat = isHazmat(product.title || '', brandName);
+      const productPL = isPrivateLabel(brandName);
+      const productChinesePL = !productPL && isSuspiciousChineseBrand(brandName);
 
       if (productHazmat) {
-        console.log(`   🔥 Hazmat: ${product.asin} - ${product.brand} - ${product.title?.substring(0, 50)}...`);
+        console.log(`   🔥 Hazmat: ${product.asin} - ${brandName} - ${product.title?.substring(0, 50)}...`);
         hazmatCount++;
         asinsToDelete.push(product.asin);
       } else if (productPL) {
-        console.log(`   🏷️  PL: ${product.asin} - ${product.brand}`);
+        console.log(`   🏷️  PL (blacklist): ${product.asin} - ${brandName}`);
         plCount++;
+        asinsToDelete.push(product.asin);
+      } else if (productChinesePL) {
+        console.log(`   🤖 PL chinois détecté: ${product.asin} - ${brandName} - ${product.title?.substring(0, 50)}...`);
+        addToBlacklist(brandName); // Auto-ajout
+        plChineseCount++;
         asinsToDelete.push(product.asin);
       }
     }
+
+    console.log('\n' + '='.repeat(60));
+    console.log(`📊 Résumé filtrage:`);
+    console.log(`   - Hazmat détectés: ${hazmatCount}`);
+    console.log(`   - Private Label (blacklist): ${plCount}`);
+    console.log(`   - Private Label (auto-détecté): ${plChineseCount}`);
+    console.log(`   - Total à supprimer: ${asinsToDelete.length}`);
+    console.log(`   - Produits OK: ${products.length - asinsToDelete.length}`);
 
     console.log('\n' + '='.repeat(60));
     console.log(`📊 Résumé filtrage:`);
@@ -178,7 +264,7 @@ async function applyFilters() {
 
     console.log('\n' + '='.repeat(60));
     console.log('✅ Mise à jour terminée!');
-    console.log(`   - Produits supprimés: ${asinsToDelete.length} (${hazmatCount} Hazmat + ${plCount} PL)`);
+    console.log(`   - Produits supprimés: ${asinsToDelete.length} (${hazmatCount} Hazmat + ${plCount} PL blacklist + ${plChineseCount} PL auto-détecté)`);
     console.log(`   - Marques mises à jour: ${updated}`);
     console.log(`   - Marques supprimées: ${deleted}`);
     console.log('='.repeat(60));

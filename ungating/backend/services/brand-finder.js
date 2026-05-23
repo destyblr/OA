@@ -87,30 +87,45 @@ function loadBlacklist() {
 function isSuspiciousChineseBrand(brand) {
   if (!brand || brand.length < 4) return false;
 
+  // Ignorer marques avec espaces (noms composés légitimes)
+  if (brand.includes(' ')) return false;
+
   const upper = brand.toUpperCase();
 
-  // Pattern 1: Tout en majuscules avec consonnes rares (Y, Z, W, Q, X)
+  // Whitelist: marques connues légitimes qui pourraient matcher les patterns
+  const knownLegit = ['LEGO', 'NERF', 'HASBRO', 'FISHER', 'PRICE'];
+  if (knownLegit.some(w => upper.includes(w))) return false;
+
+  // Pattern 1: Consonnes rares typiques PL chinois (Y, Z, W, Q, X en début)
   const rareConsonants = ['Y', 'Z', 'W', 'Q', 'X'];
   const startsWithRare = rareConsonants.some(c => upper.startsWith(c));
-  const hasMultipleRare = rareConsonants.filter(c => upper.includes(c)).length >= 2;
 
-  // Pattern 2: Nom incompréhensible (peu de voyelles, beaucoup de consonnes)
+  // Pattern 2: Ratio voyelles/consonnes suspect
   const vowels = (upper.match(/[AEIOU]/g) || []).length;
-  const consonants = (upper.match(/[BCDFGHJKLMNPQRSTVWXYZ]/g) || []).length;
-  const vowelRatio = vowels / upper.length;
+  const letters = (upper.match(/[A-Z]/g) || []).length;
+  const vowelRatio = vowels / letters;
 
-  // Pattern 3: Mélange bizarre de majuscules/minuscules dans un seul mot
-  const hasWeirdCase = brand !== upper && brand !== brand.toLowerCase() &&
-                       !brand.match(/^[A-Z][a-z]+$/); // Pas juste une capitale initiale
+  // Pattern 3: Consonnes multiples au début (Mtsooning, Jradse)
+  const startsWithMultipleConsonants = /^[BCDFGHJKLMNPQRSTVWXYZ]{3,}/.test(upper);
 
-  // Détection: au moins 2 critères sur 3
-  const criteria = [
-    startsWithRare || hasMultipleRare,
-    vowelRatio < 0.25 && consonants > 4,
-    hasWeirdCase
-  ].filter(Boolean).length;
+  // Pattern 4: Nom incompréhensible (consonnes groupées bizarres)
+  const hasWeirdPattern = /[BCDFGHJKLMNPQRSTVWXYZ]{4,}/.test(upper) || // 4+ consonnes consécutives
+                          /[QX][^UAEIOU]/.test(upper) || // Q/X pas suivi de voyelle
+                          /TSN|KQG|NTSN|DSE/.test(upper); // Séquences improbables
 
-  return criteria >= 2;
+  // Pattern 5: Tout en majuscules, court, peu de voyelles
+  const allCaps = brand === upper && brand.length >= 5 && brand.length <= 10;
+  const commonWords = ['TECH', 'SHOP', 'PLAY', 'TOYS', 'BABY', 'KIDS', 'HOME', 'PRO', 'MAX', 'PLUS', 'STAR'];
+  const hasCommonWord = commonWords.some(w => upper.includes(w));
+
+  // Détection ultra-agressive pour noms incompréhensibles
+  if (startsWithRare && vowelRatio < 0.4) return true; // YANJINGHE, WYRIAZA, XSHOT
+  if (hasWeirdPattern) return true; // Dhqkqg, Mtsooning
+  if (startsWithMultipleConsonants && vowelRatio < 0.35) return true; // Jradse
+  if (allCaps && !hasCommonWord && vowelRatio < 0.4) return true; // AUYAO, PATIFEED, ANSTEN
+  if (allCaps && brand.length <= 7 && vowelRatio < 0.45) return true; // Kekeso
+
+  return false;
 }
 
 /**
@@ -513,18 +528,29 @@ class BrandFinder {
       });
       console.log(`   ✅ ${products.length} ASIN après filtre Hazmat\n`);
 
-      // Étape 2b : Filtrer Private Labels Amazon
-      console.log('🏷️  Étape 2b : Filtre Private Labels Amazon\n');
+      // Étape 2b : Filtrer Private Labels (Amazon + détection auto chinois)
+      console.log('🏷️  Étape 2b : Filtre Private Labels (Amazon + Auto-détection)\n');
       products = products.filter(p => {
+        const brandName = p.brand || '';
+
+        // Check blacklist existante
         const isPrivateLabel = PRIVATE_LABEL_BRANDS.some(brand =>
-          (p.brand || '').toLowerCase().includes(brand.toLowerCase())
+          brandName.toLowerCase().includes(brand.toLowerCase())
         );
 
         if (isPrivateLabel) {
-          console.log(`   ❌ Private Label: ${p.brand} - ${p.title.substring(0, 50)}...`);
+          console.log(`   ❌ PL (blacklist): ${brandName} - ${p.title.substring(0, 50)}...`);
+          return false;
         }
 
-        return !isPrivateLabel;
+        // Détection automatique marques chinoises suspectes
+        if (isSuspiciousChineseBrand(brandName)) {
+          console.log(`   🤖 PL chinois détecté: ${brandName} - ${p.title.substring(0, 50)}...`);
+          addToBlacklist(brandName); // Ajout auto à la blacklist
+          return false;
+        }
+
+        return true;
       });
       console.log(`   ✅ ${products.length} ASIN après filtre Private Label\n`);
 
@@ -676,4 +702,4 @@ class BrandFinder {
   }
 }
 
-module.exports = new BrandFinder();
+module.exports = BrandFinder;
