@@ -61,29 +61,23 @@ async function scanBrand() {
   console.log('\n🔍 Étape 2: Recherche produits Keepa...');
 
   const maxProducts = maxTokens - 11; // 11 tokens pour la query
+
+  // Filtrage post-query (on récupère plus de produits puis on filtre)
   const selection = {
     current_SALES_gte: 1,
     current_SALES_lte: 10000,
-    current_BUY_BOX_SHIPPING_gte: 1500,
-    current_BUY_BOX_SHIPPING_lte: 5000,
-    current_COUNT_NEW_FBA_gte: 0,
-    current_COUNT_NEW_FBA_lte: 5,
-    productType: ['0'],
-    brandStoreName: [brandName.toLowerCase()],
-    sort: [
-      ['current_SALES', 'asc'],
-      ['monthlySold', 'desc']
-    ]
+    current_BUY_BOX_SHIPPING_gte: 1500,  // Prix min: 15€
+    current_BUY_BOX_SHIPPING_lte: 5000,  // Prix max: 50€
+    brandStoreName: [brandName.toLowerCase()]
   };
 
   console.log(`   🎯 Max produits: ${maxProducts}`);
 
-  const response = await axios.get('https://api.keepa.com/product/finder', {
+  const response = await axios.get('https://api.keepa.com/query', {
     params: {
       key: KEEPA_API_KEY,
       domain: 4,
       selection: JSON.stringify(selection),
-      stats: 365,
       page: 0,
       perPage: maxProducts
     }
@@ -113,10 +107,22 @@ async function scanBrand() {
     }
   });
 
-  const products = (detailsResponse.data.products || []).map(p => {
+  const allProducts = (detailsResponse.data.products || []).map(p => {
     const lastBsr = p.csv?.[3]?.[p.csv[3].length - 1] || null;
     const lastPrice = p.csv?.[1]?.[p.csv[1].length - 1] || null;
     const sellersCount = p.csv?.[11]?.[p.csv[11].length - 1] || 0;
+
+    // Détection Amazon: csv[18] = prix Amazon, -1 = pas de prix Amazon
+    // Si l'array existe et a une valeur >= 0, Amazon vend
+    const amazonPriceArray = p.csv?.[18];
+    const amazonPrice = amazonPriceArray && amazonPriceArray.length > 0
+      ? amazonPriceArray[amazonPriceArray.length - 1]
+      : -1;
+    const amazonSelling = amazonPrice !== null && amazonPrice !== undefined && amazonPrice >= 0;
+
+    // Rating et avis depuis stats
+    const rating = p.stats?.avg?.rating || p.rating || null;
+    const reviewsCount = p.stats?.reviewCount || p.reviewCount || 0;
 
     return {
       asin: p.asin,
@@ -125,15 +131,29 @@ async function scanBrand() {
       bsr: lastBsr,
       price: lastPrice ? lastPrice / 100 : null,
       sellersCount: sellersCount,
-      rating: p.rating,
-      reviewsCount: p.reviewsCount,
+      amazonSelling: amazonSelling,
+      rating: rating ? rating / 10 : null, // Keepa rating est sur 50, on divise par 10 pour avoir sur 5
+      reviewsCount: reviewsCount,
       imageUrl: p.imagesCSV ? `https://images-na.ssl-images-amazon.com/images/I/${p.imagesCSV.split(',')[0]}` : null,
       category: category,
       rootCategory: p.rootCategory
     };
   });
 
-  console.log(`   ✅ ${products.length} produits avec détails`);
+  // Filtrer: max 5 vendeurs ET Amazon ne vend pas
+  const products = allProducts.filter(p => {
+    const passSellerFilter = p.sellersCount <= 5;
+    const passAmazonFilter = !p.amazonSelling;
+
+    // Log des produits exclus pour debug
+    if (!passSellerFilter || !passAmazonFilter) {
+      console.log(`   ❌ Exclu: ${p.asin} - Vendeurs: ${p.sellersCount} (max 5: ${passSellerFilter ? '✓' : '✗'}) | Amazon: ${p.amazonSelling ? '✗ VEND' : '✓ ne vend pas'}`);
+    }
+
+    return passSellerFilter && passAmazonFilter;
+  });
+
+  console.log(`   ✅ ${allProducts.length} produits trouvés → ${products.length} après filtres (≤5 vendeurs, sans Amazon)`);
 
   // Tokens utilisés
   const tokensUsed = 11 + asins.length;

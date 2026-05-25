@@ -19,7 +19,7 @@ module.exports = [
   },
   {
     name: "Oral-B",
-    units: 10,
+    units: 100,
     type: "BRAND",
     notes: "Hygiène dentaire - Brosses à dents électriques"
   },
@@ -40,5 +40,59 @@ module.exports = [
     units: 100,
     type: "BRAND",
     notes: "Informatique - Imprimantes, ordinateurs, accessoires"
+  },
+  {
+    name: "BIC",
+    units: 10,
+    type: "BRAND",
+    notes: "Fournitures de bureau - Stylos, briquets, rasoirs"
+  },
+  {
+    name: "STABILO",
+    units: 10,
+    type: "BRAND",
+    notes: "Fournitures de bureau - Surligneurs, stylos"
+  },
+  {
+    name: "Braun",
+    units: 10,
+    type: "BRAND",
+    notes: "Électroménager - Rasoirs, épilateurs, soins personnels"
+  },
+  {
+    name: "Tefal",
+    units: 1,
+    type: "BRAND",
+    notes: "Petit électroménager - Poêles, casseroles, robots"
+  },
+  {
+    name: "Moulinex",
+    units: 1,
+    type: "BRAND",
+    notes: "Petit électroménager - Mixeurs, robots, cafetières"
+  },
+  {
+    name: "SEB",
+    units: 1,
+    type: "BRAND",
+    notes: "Petit électroménager - Cocottes, appareils cuisson"
+  },
+  {
+    name: "Krups",
+    units: 1,
+    type: "BRAND",
+    notes: "Petit électroménager - Machines à café, bouilloires"
+  },
+  {
+    name: "Kenwood",
+    units: 1,
+    type: "BRAND",
+    notes: "Petit électroménager - Robots pâtisserie"
+  },
+  {
+    name: "De'Longhi",
+    units: 1,
+    type: "BRAND",
+    notes: "Petit électroménager - Machines à café"
   }
 ];
