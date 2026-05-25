@@ -1,0 +1,15 @@
+// LISTE DES MARQUES FNAC PRO À SCANNER
+// Format: Nom de la marque | Catégorie
+// Une marque par ligne
+
+BaByliss | Beauté
+Philips | Électroménager
+Rowenta | Électroménager
+Dyson | Électroménager
+Lego | Jouets
+
+// AJOUTE TES MARQUES ICI:
+// Exemple:
+// Oral-B | Hygiène et Santé
+// Pampers | Baby
+// Dove | Beauté
