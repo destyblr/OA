@@ -28,5 +28,17 @@ module.exports = [
     units: 10,
     type: "BRAND",
     notes: "Jouets électroniques pour enfants"
+  },
+  {
+    name: "Logitech",
+    units: 10,
+    type: "BRAND",
+    notes: "Périphériques informatiques - Claviers, souris, webcams"
+  },
+  {
+    name: "HP",
+    units: 100,
+    type: "BRAND",
+    notes: "Informatique - Imprimantes, ordinateurs, accessoires"
   }
 ];
