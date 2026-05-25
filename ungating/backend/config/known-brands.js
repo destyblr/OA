@@ -61,13 +61,13 @@ module.exports = [
   },
   {
     name: "Tefal",
-    units: 1,
+    units: 10,
     type: "BRAND",
     notes: "Petit électroménager - Poêles, casseroles, robots"
   },
   {
     name: "Moulinex",
-    units: 1,
+    units: 10,
     type: "BRAND",
     notes: "Petit électroménager - Mixeurs, robots, cafetières"
   },

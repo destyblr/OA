@@ -103,7 +103,8 @@ async function scanBrand() {
       key: KEEPA_API_KEY,
       domain: 4,
       asin: asins.join(','),
-      stats: 365
+      stats: 365,
+      offers: 20  // Récupérer les 20 dernières offres pour détecter Amazon
     }
   });
 
@@ -112,13 +113,36 @@ async function scanBrand() {
     const lastPrice = p.csv?.[1]?.[p.csv[1].length - 1] || null;
     const sellersCount = p.csv?.[11]?.[p.csv[11].length - 1] || 0;
 
-    // Détection Amazon: csv[18] = prix Amazon, -1 = pas de prix Amazon
-    // Si l'array existe et a une valeur >= 0, Amazon vend
-    const amazonPriceArray = p.csv?.[18];
-    const amazonPrice = amazonPriceArray && amazonPriceArray.length > 0
-      ? amazonPriceArray[amazonPriceArray.length - 1]
-      : -1;
-    const amazonSelling = amazonPrice !== null && amazonPrice !== undefined && amazonPrice >= 0;
+    // Détection Amazon via les offres (plus fiable que csv[18])
+    // Keepa renvoie p.offers = array d'offres avec sellerId
+    // Amazon seller IDs connus: "Amazon", "Amazon.fr", ou vide pour Amazon direct
+    let amazonSelling = false;
+
+    if (p.offers && Array.isArray(p.offers)) {
+      // Chercher Amazon dans les offres
+      amazonSelling = p.offers.some(offer => {
+        const sellerName = offer.sellerName || '';
+        const sellerId = offer.sellerId || '';
+        return sellerName.toLowerCase().includes('amazon') ||
+               sellerId.toLowerCase().includes('amazon') ||
+               offer.isPrimeExclusive; // Prime exclusive = souvent Amazon
+      });
+    }
+
+    // Fallback: vérifier buyBoxSellerId si les offres ne sont pas dispo
+    if (!amazonSelling && p.buyBoxSellerId) {
+      const buyBoxSeller = p.buyBoxSellerId.toLowerCase();
+      amazonSelling = buyBoxSeller.includes('amazon') || buyBoxSeller === '';
+    }
+
+    // Debug pour B07ZHNJN7Z
+    if (p.asin === 'B07ZHNJN7Z') {
+      console.log('\n🔍 DEBUG B07ZHNJN7Z:');
+      console.log(`   offers count: ${p.offers?.length || 0}`);
+      console.log(`   offers: ${JSON.stringify(p.offers?.slice(0, 3).map(o => ({ seller: o.sellerName, id: o.sellerId })))}`);
+      console.log(`   buyBoxSellerId: ${p.buyBoxSellerId}`);
+      console.log(`   amazonSelling: ${amazonSelling}`);
+    }
 
     // Rating et avis depuis stats
     const rating = p.stats?.avg?.rating || p.rating || null;
@@ -148,6 +172,9 @@ async function scanBrand() {
     // Log des produits exclus pour debug
     if (!passSellerFilter || !passAmazonFilter) {
       console.log(`   ❌ Exclu: ${p.asin} - Vendeurs: ${p.sellersCount} (max 5: ${passSellerFilter ? '✓' : '✗'}) | Amazon: ${p.amazonSelling ? '✗ VEND' : '✓ ne vend pas'}`);
+    } else {
+      // Log des produits qui passent pour vérifier
+      console.log(`   ✅ OK: ${p.asin} - Vendeurs: ${p.sellersCount} | Amazon: ${p.amazonSelling ? '✗ VEND' : '✓ ne vend pas'}`);
     }
 
     return passSellerFilter && passAmazonFilter;
