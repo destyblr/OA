@@ -62,12 +62,13 @@ async function scanBrand() {
 
   const maxProducts = maxTokens - 11; // 11 tokens pour la query
 
-  // Filtrage post-query (on récupère plus de produits puis on filtre)
+  // Filtrage avec current_AMAZON pour exclure Amazon directement
   const selection = {
     current_SALES_gte: 1,
     current_SALES_lte: 10000,
     current_BUY_BOX_SHIPPING_gte: 1500,  // Prix min: 15€
     current_BUY_BOX_SHIPPING_lte: 5000,  // Prix max: 50€
+    current_AMAZON: -1,                   // Amazon ne vend pas (-1 = pas de prix Amazon)
     brandStoreName: [brandName.toLowerCase()]
   };
 
@@ -103,8 +104,7 @@ async function scanBrand() {
       key: KEEPA_API_KEY,
       domain: 4,
       asin: asins.join(','),
-      stats: 365,
-      offers: 20  // Récupérer les 20 dernières offres pour détecter Amazon
+      stats: 365  // Pas besoin d'offers, on filtre Amazon au niveau query
     }
   });
 
@@ -113,31 +113,9 @@ async function scanBrand() {
     const lastPrice = p.csv?.[1]?.[p.csv[1].length - 1] || null;
     const sellersCount = p.csv?.[11]?.[p.csv[11].length - 1] || 0;
 
-    // Détection Amazon via le champ isAmazon dans les offres
-    let amazonSelling = false;
-
-    if (p.offers && Array.isArray(p.offers)) {
-      // Chercher si une offre a isAmazon: true
-      amazonSelling = p.offers.some(offer => offer.isAmazon === true);
-    }
-
-    // Debug pour B07ZHNJN7Z
-    if (p.asin === 'B07ZHNJN7Z') {
-      console.log('\n🔍 DEBUG B07ZHNJN7Z:');
-      console.log(`   Nombre d'offres: ${p.offers?.length || 0}`);
-
-      // Compter les offres Amazon
-      const amazonOffers = p.offers?.filter(o => o.isAmazon === true) || [];
-      const otherOffers = p.offers?.filter(o => o.isAmazon === false) || [];
-
-      console.log(`   Offres Amazon (isAmazon=true): ${amazonOffers.length}`);
-      console.log(`   Autres vendeurs (isAmazon=false): ${otherOffers.length}`);
-      console.log(`   ➡️  Amazon vend ce produit: ${amazonSelling ? 'OUI ✗' : 'NON ✓'}`);
-
-      if (amazonOffers.length > 0) {
-        console.log(`   Détails offre Amazon: ${JSON.stringify(amazonOffers[0])}`);
-      }
-    }
+    // Amazon est déjà filtré au niveau de la query (current_AMAZON: -1)
+    // Donc tous les produits ici n'ont PAS Amazon qui vend
+    const amazonSelling = false;
 
     // Rating et avis depuis stats
     const rating = p.stats?.avg?.rating || p.rating || null;
@@ -159,23 +137,21 @@ async function scanBrand() {
     };
   });
 
-  // Filtrer: max 5 vendeurs ET Amazon ne vend pas
+  // Filtrer: max 5 vendeurs (Amazon déjà filtré au niveau query)
   const products = allProducts.filter(p => {
     const passSellerFilter = p.sellersCount <= 5;
-    const passAmazonFilter = !p.amazonSelling;
 
-    // Log des produits exclus pour debug
-    if (!passSellerFilter || !passAmazonFilter) {
-      console.log(`   ❌ Exclu: ${p.asin} - Vendeurs: ${p.sellersCount} (max 5: ${passSellerFilter ? '✓' : '✗'}) | Amazon: ${p.amazonSelling ? '✗ VEND' : '✓ ne vend pas'}`);
+    // Log des produits
+    if (!passSellerFilter) {
+      console.log(`   ❌ Exclu: ${p.asin} - Vendeurs: ${p.sellersCount} (max 5: ✗)`);
     } else {
-      // Log des produits qui passent pour vérifier
-      console.log(`   ✅ OK: ${p.asin} - Vendeurs: ${p.sellersCount} | Amazon: ${p.amazonSelling ? '✗ VEND' : '✓ ne vend pas'}`);
+      console.log(`   ✅ OK: ${p.asin} - Vendeurs: ${p.sellersCount}`);
     }
 
-    return passSellerFilter && passAmazonFilter;
+    return passSellerFilter;
   });
 
-  console.log(`   ✅ ${allProducts.length} produits trouvés → ${products.length} après filtres (≤5 vendeurs, sans Amazon)`);
+  console.log(`   ✅ ${allProducts.length} produits trouvés → ${products.length} après filtre vendeurs (≤5, Amazon déjà exclu via query)`);
 
   // Tokens utilisés
   const tokensUsed = 11 + asins.length;
