@@ -113,35 +113,30 @@ async function scanBrand() {
     const lastPrice = p.csv?.[1]?.[p.csv[1].length - 1] || null;
     const sellersCount = p.csv?.[11]?.[p.csv[11].length - 1] || 0;
 
-    // Détection Amazon via les offres (plus fiable que csv[18])
-    // Keepa renvoie p.offers = array d'offres avec sellerId
-    // Amazon seller IDs connus: "Amazon", "Amazon.fr", ou vide pour Amazon direct
+    // Détection Amazon via le champ isAmazon dans les offres
     let amazonSelling = false;
 
     if (p.offers && Array.isArray(p.offers)) {
-      // Chercher Amazon dans les offres
-      amazonSelling = p.offers.some(offer => {
-        const sellerName = offer.sellerName || '';
-        const sellerId = offer.sellerId || '';
-        return sellerName.toLowerCase().includes('amazon') ||
-               sellerId.toLowerCase().includes('amazon') ||
-               offer.isPrimeExclusive; // Prime exclusive = souvent Amazon
-      });
-    }
-
-    // Fallback: vérifier buyBoxSellerId si les offres ne sont pas dispo
-    if (!amazonSelling && p.buyBoxSellerId) {
-      const buyBoxSeller = p.buyBoxSellerId.toLowerCase();
-      amazonSelling = buyBoxSeller.includes('amazon') || buyBoxSeller === '';
+      // Chercher si une offre a isAmazon: true
+      amazonSelling = p.offers.some(offer => offer.isAmazon === true);
     }
 
     // Debug pour B07ZHNJN7Z
     if (p.asin === 'B07ZHNJN7Z') {
       console.log('\n🔍 DEBUG B07ZHNJN7Z:');
-      console.log(`   offers count: ${p.offers?.length || 0}`);
-      console.log(`   offers: ${JSON.stringify(p.offers?.slice(0, 3).map(o => ({ seller: o.sellerName, id: o.sellerId })))}`);
-      console.log(`   buyBoxSellerId: ${p.buyBoxSellerId}`);
-      console.log(`   amazonSelling: ${amazonSelling}`);
+      console.log(`   Nombre d'offres: ${p.offers?.length || 0}`);
+
+      // Compter les offres Amazon
+      const amazonOffers = p.offers?.filter(o => o.isAmazon === true) || [];
+      const otherOffers = p.offers?.filter(o => o.isAmazon === false) || [];
+
+      console.log(`   Offres Amazon (isAmazon=true): ${amazonOffers.length}`);
+      console.log(`   Autres vendeurs (isAmazon=false): ${otherOffers.length}`);
+      console.log(`   ➡️  Amazon vend ce produit: ${amazonSelling ? 'OUI ✗' : 'NON ✓'}`);
+
+      if (amazonOffers.length > 0) {
+        console.log(`   Détails offre Amazon: ${JSON.stringify(amazonOffers[0])}`);
+      }
     }
 
     // Rating et avis depuis stats
