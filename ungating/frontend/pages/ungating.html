@@ -1748,6 +1748,10 @@ function App() {
 
         if (mediaBrandsBlacklist.some(b => approvalText.includes(b))) return false;
 
+        // MARQUES DÉBLOQUÉES
+        const unlockedBrands = ['Moulinex', 'Tefal', 'SEB', 'BIC', 'De\'Longhi', 'DeLonghi', 'Funko', 'Braun', 'Logitech'];
+        if (unlockedBrands.some(unlocked => brand.toUpperCase() === unlocked.toUpperCase())) return false;
+
         return true; // Produit physique valide
       });
 
