@@ -244,6 +244,8 @@ class UngatingService {
    */
   async getScanResults(scanId) {
     try {
+      const UNLOCKED_BRANDS = ['Moulinex', 'Tefal', 'SEB', 'BIC', 'De\'Longhi', 'DeLonghi', 'Funko', 'Braun', 'Logitech'];
+
       const { data, error } = await supabase
         .from('opportunities')
         .select(`
@@ -255,7 +257,16 @@ class UngatingService {
         .order('score', { ascending: false });
 
       if (error) throw error;
-      return data;
+
+      // Filtrer les marques débloquées
+      const filtered = data.filter(opp => {
+        const brand = opp.products?.brand || '';
+        return !UNLOCKED_BRANDS.some(unlocked =>
+          brand.toUpperCase() === unlocked.toUpperCase()
+        );
+      });
+
+      return filtered;
     } catch (error) {
       console.error('Error getting results:', error);
       return null;

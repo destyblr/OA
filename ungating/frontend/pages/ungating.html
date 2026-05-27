@@ -250,7 +250,6 @@ const CATS = [
 ];
 
 const TVA = 0.20;
-const UNLOCKED_BRANDS = ['Moulinex', 'Tefal', 'SEB', 'BIC', 'De\'Longhi', 'DeLonghi', 'Funko', 'Braun', 'Logitech'].map(b => b.toUpperCase());
 
 // Supabase client
 const supabase = window.supabase.createClient(
@@ -643,16 +642,6 @@ const ResultsTable = ({ rows, openedScan, onCloseScan }) => {
 
   const filtered = useMemo(() => {
     let res = typeFilter==="all" ? editableRows : editableRows.filter(r=>r.type===typeFilter);
-    console.log('Before filter:', res.length, 'rows');
-    console.log('Sample brands:', res.slice(0, 5).map(r => r.brand));
-    console.log('UNLOCKED_BRANDS:', UNLOCKED_BRANDS);
-    res = res.filter(r => {
-      const brandUpper = (r.brand || '').toUpperCase();
-      const isUnlocked = UNLOCKED_BRANDS.includes(brandUpper);
-      if (isUnlocked) console.log('Filtering out:', r.brand, '->', brandUpper);
-      return !isUnlocked;
-    });
-    console.log('After filter:', res.length, 'rows');
     res = [...res];
     switch(sort) {
       case "priceAsc":  res.sort((a,b)=>a.price-b.price); break;
