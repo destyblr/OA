@@ -10,12 +10,13 @@ echo   SCAN KEEPA: Lego
 echo ========================================
 echo.
 echo Categorie: Jouets
-echo Limite: 55 tokens max
+echo Mode: Scan complet (max 200 ASIN)
+echo Sauvegarde progressive - Ctrl+C pour arreter
 echo.
 echo ========================================
 echo.
 
-node analyze-brand.js "Lego" --category "Jouets" --max-tokens 55
+node analyze-brand.js "Lego" --category="Jouets"
 
 echo.
 echo ========================================

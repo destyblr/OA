@@ -10,12 +10,13 @@ echo   SCAN KEEPA: Tefal
 echo ========================================
 echo.
 echo Categorie: Electromenager
-echo Limite: 55 tokens max
+echo Mode: Scan complet (max 200 ASIN)
+echo Sauvegarde progressive - Ctrl+C pour arreter
 echo.
 echo ========================================
 echo.
 
-node analyze-brand.js "Tefal" --category="Electromenager" --max-tokens=55
+node analyze-brand.js "Tefal" --category="Electromenager"
 
 echo.
 echo ========================================

@@ -17,11 +17,11 @@ const KEEPA_API_KEY = process.env.KEEPA_API_KEY;
 // Parser les arguments
 const args = process.argv.slice(2);
 const brandName = args[0];
-const maxTokens = parseInt(args.find(a => a.startsWith('--max-tokens='))?.split('=')[1] || '55');
 const category = args.find(a => a.startsWith('--category='))?.split('=')[1] || 'Hygiène et Santé';
+const REFRESH_DAYS = 3; // Re-scanner les ASIN après 3 jours
 
 if (!brandName) {
-  console.error('❌ Usage: node analyze-brand.js "BrandName" [--max-tokens=55] [--category="Beauté"]');
+  console.error('❌ Usage: node analyze-brand.js "BrandName" [--category="Beauté"]');
   process.exit(1);
 }
 
@@ -33,6 +33,65 @@ async function checkTokens() {
     params: { key: KEEPA_API_KEY }
   });
   return response.data.tokensLeft;
+}
+
+/**
+ * Filtrer les ASIN qui ont besoin d'être scannés
+ * Exclure ceux scannés il y a moins de REFRESH_DAYS jours
+ */
+async function filterAsinsToScan(asins) {
+  if (asins.length === 0) return [];
+
+  // Récupérer les ASIN existants de la base
+  const { data: existing, error } = await supabase
+    .from('profitable_asins')
+    .select('asin, scanned_at')
+    .in('asin', asins);
+
+  if (error) {
+    console.log(`   ⚠️  Erreur lecture DB: ${error.message}`);
+    return asins; // En cas d'erreur, scanner tous
+  }
+
+  if (!existing || existing.length === 0) {
+    console.log(`   ✅ Tous nouveaux: ${asins.length} ASIN à scanner`);
+    return asins;
+  }
+
+  // Créer un Map pour lookup rapide
+  const existingMap = new Map(existing.map(e => [e.asin, e.scanned_at]));
+
+  const now = new Date();
+  const refreshThreshold = REFRESH_DAYS * 24 * 60 * 60 * 1000; // jours → millisecondes
+
+  const toScan = [];
+  const skipped = [];
+
+  for (const asin of asins) {
+    const scannedAt = existingMap.get(asin);
+
+    if (!scannedAt) {
+      // Nouveau ASIN
+      toScan.push(asin);
+    } else {
+      // Vérifier âge
+      const ageMs = now - new Date(scannedAt);
+      if (ageMs >= refreshThreshold) {
+        // Assez vieux, refresh
+        toScan.push(asin);
+      } else {
+        // Trop récent, skip
+        skipped.push(asin);
+      }
+    }
+  }
+
+  console.log(`   📊 Filtrage refresh (${REFRESH_DAYS} jours):`);
+  console.log(`      Nouveaux + anciens: ${toScan.length}`);
+  console.log(`      Déjà scannés (<${REFRESH_DAYS}j): ${skipped.length}`);
+  console.log(`      → TOTAL à scanner: ${toScan.length}/${asins.length}`);
+
+  return toScan;
 }
 
 /**
@@ -73,29 +132,19 @@ async function scanBrand() {
   console.log('\n💰 Étape 1: Vérification tokens...');
   let tokensAvailable = await waitForTokens(11);
   console.log(`   Disponibles: ${tokensAvailable}`);
-
-  if (tokensAvailable < maxTokens) {
-    const waitTime = maxTokens - tokensAvailable;
-    console.log(`   ⏳ Pas assez! Attendre ${waitTime} minutes...`);
-    throw new Error(`Tokens insuffisants (${tokensAvailable}/${maxTokens})`);
-  }
+  console.log(`   Coût query: 11 tokens (fixed)`);
+  console.log(`   💡 Les batches démarreront automatiquement après`);
 
   // 2. Product Finder
   console.log('\n🔍 Étape 2: Recherche produits Keepa...');
 
-  const maxProducts = maxTokens - 11; // 11 tokens pour la query
-
-  // Filtrage avec current_AMAZON pour exclure Amazon directement
   const selection = {
     current_SALES_gte: 1,
     current_SALES_lte: 10000,
     current_BUY_BOX_SHIPPING_gte: 1500,  // Prix min: 15€
     current_BUY_BOX_SHIPPING_lte: 5000,  // Prix max: 50€
-    current_AMAZON: -1,                   // Amazon ne vend pas (-1 = pas de prix Amazon)
     brandStoreName: [brandName.toLowerCase()]
   };
-
-  console.log(`   🎯 Max produits: ${maxProducts}`);
 
   const response = await axios.get('https://api.keepa.com/query', {
     params: {
@@ -103,7 +152,7 @@ async function scanBrand() {
       domain: 4,
       selection: JSON.stringify(selection),
       page: 0,
-      perPage: maxProducts
+      perPage: 200  // Max ASIN par query
     }
   });
 
@@ -119,29 +168,38 @@ async function scanBrand() {
     return { products: [], tokensUsed: 11 };
   }
 
-  // 3. Traiter par batches de 5 ASIN
-  console.log('\n📦 Étape 3: Traitement par batches (5 ASIN/batch)...');
+  // 3. Filtrer les ASIN à scanner (skip ceux < 3 jours)
+  console.log('\n🔄 Étape 3: Filtrage refresh...');
+  const asinsToScan = await filterAsinsToScan(asins);
+
+  if (asinsToScan.length === 0) {
+    console.log('\n   ✅ Tous les ASIN sont à jour (scannés < 3 jours)');
+    console.log('   💡 Rien à faire, données déjà fraîches !');
+    return { products: [], tokensUsed: 11 };
+  }
+
+  // 4. Traiter par batches de 5 ASIN
+  console.log('\n📦 Étape 4: Traitement par batches (5 ASIN/batch)...');
 
   const BATCH_SIZE = 5;
-  const MAX_BATCHES = 10; // Limite de sécurité
   const TOKENS_NEEDED_PER_BATCH = 50; // Sécurité: attendre d'avoir 50 tokens avant chaque batch
 
   const batches = [];
-  for (let i = 0; i < asins.length; i += BATCH_SIZE) {
-    batches.push(asins.slice(i, i + BATCH_SIZE));
+  for (let i = 0; i < asinsToScan.length; i += BATCH_SIZE) {
+    batches.push(asinsToScan.slice(i, i + BATCH_SIZE));
   }
 
-  const totalBatches = Math.min(batches.length, MAX_BATCHES);
-  console.log(`   📊 ${asins.length} ASIN → ${totalBatches} batches à traiter`);
+  console.log(`   📊 ${asinsToScan.length} ASIN → ${batches.length} batches à traiter`);
+  console.log(`   💡 Sauvegarde après chaque batch - Ctrl+C pour arrêter`);
 
   let allProducts = [];
   let totalTokensUsed = 11; // Query déjà faite
 
-  for (let batchIndex = 0; batchIndex < totalBatches; batchIndex++) {
+  for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
     const batch = batches[batchIndex];
     const batchNum = batchIndex + 1;
 
-    console.log(`\n   🔄 Batch ${batchNum}/${totalBatches} (${batch.length} ASIN)...`);
+    console.log(`\n   🔄 Batch ${batchNum}/${batches.length} (${batch.length} ASIN)...`);
 
     // Attendre d'avoir 50 tokens avant de continuer
     await waitForTokens(TOKENS_NEEDED_PER_BATCH);
@@ -204,8 +262,16 @@ async function scanBrand() {
       return passSellerFilter && passAmazonFilter;
     });
 
+    // Sauvegarder ce batch immédiatement
+    if (goodProducts.length > 0) {
+      console.log(`      💾 Sauvegarde ${goodProducts.length} produit(s)...`);
+      const saved = await saveBatchToSupabase(goodProducts);
+      console.log(`      ✅ ${saved.length} sauvegardé(s) en DB`);
+    }
+
     allProducts = allProducts.concat(goodProducts);
-    console.log(`      → ${goodProducts.length}/${batch.length} produits OK (Total: ${allProducts.length})`);
+    console.log(`      → Batch: ${goodProducts.length}/${batch.length} OK | Total cumulé: ${allProducts.length}`);
+    console.log(`      💡 Ctrl+C pour arrêter (données déjà sauvées)`);
   }
 
   console.log(`\n   ✅ Scan terminé: ${allProducts.length} produits rentables trouvés`);
@@ -215,11 +281,9 @@ async function scanBrand() {
 }
 
 /**
- * Sauvegarder dans Supabase
+ * Sauvegarder un batch dans Supabase (appelé après chaque batch)
  */
-async function saveToSupabase(products) {
-  console.log('\n💾 Étape 4: Sauvegarde Supabase...');
-
+async function saveBatchToSupabase(products) {
   const saved = [];
 
   for (const product of products) {
@@ -246,11 +310,10 @@ async function saveToSupabase(products) {
     if (!error) {
       saved.push(product);
     } else {
-      console.log(`   ⚠️  Erreur ${product.asin}: ${error.message}`);
+      console.log(`         ⚠️  Erreur ${product.asin}: ${error.message}`);
     }
   }
 
-  console.log(`   ✅ ${saved.length}/${products.length} produits sauvegardés`);
   return saved;
 }
 
@@ -296,10 +359,7 @@ async function main() {
   try {
     const { products, tokensUsed } = await scanBrand();
 
-    if (products.length > 0) {
-      await saveToSupabase(products);
-    }
-
+    // Produits déjà sauvegardés après chaque batch
     displaySummary(products);
 
   } catch (error) {

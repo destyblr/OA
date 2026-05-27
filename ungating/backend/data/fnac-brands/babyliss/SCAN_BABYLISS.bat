@@ -10,12 +10,13 @@ echo   SCAN KEEPA: BaByliss
 echo ========================================
 echo.
 echo Categorie: Beaute
-echo Limite: 55 tokens max
+echo Mode: Scan complet (max 200 ASIN)
+echo Sauvegarde progressive - Ctrl+C pour arreter
 echo.
 echo ========================================
 echo.
 
-node analyze-brand.js "BaByliss" --category="Beaut?" --max-tokens=55
+node analyze-brand.js "BaByliss" --category="Beaute"
 
 echo.
 echo ========================================

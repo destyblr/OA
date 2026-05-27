@@ -10,12 +10,13 @@ echo   SCAN KEEPA: Bic
 echo ========================================
 echo.
 echo Categorie: Fournitures
-echo Limite: 55 tokens max
+echo Mode: Scan complet (max 200 ASIN)
+echo Sauvegarde progressive - Ctrl+C pour arreter
 echo.
 echo ========================================
 echo.
 
-node analyze-brand.js "Bic" --category="Fournitures" --max-tokens=55
+node analyze-brand.js "Bic" --category="Fournitures"
 
 echo.
 echo ========================================

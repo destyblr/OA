@@ -250,6 +250,7 @@ const CATS = [
 ];
 
 const TVA = 0.20;
+const UNLOCKED_BRANDS = ['Moulinex', 'Tefal', 'SEB', 'BIC', 'De\'Longhi', 'DeLonghi', 'Funko', 'Braun', 'Logitech'].map(b => b.toUpperCase());
 
 // Supabase client
 const supabase = window.supabase.createClient(
@@ -785,8 +786,10 @@ const ResultsTable = ({ rows, openedScan, onCloseScan }) => {
                     </div>
                   </td>
                 </tr>
-                {items.map((r,i)=>(
-                  <tr key={cat+i} className="row border-b border-zinc-150 last:border-b-0">
+                {items.map((r,i)=>{
+                  const isUnlocked = UNLOCKED_BRANDS.includes((r.brand || '').toUpperCase());
+                  return (
+                  <tr key={cat+i} className={`row border-b border-zinc-150 last:border-b-0 ${isUnlocked ? 'bg-emerald-50/40' : ''}`}>
                     <td className="pl-5 pr-2 py-3 align-middle"><input type="checkbox" className="cb"/></td>
                     <td className="px-3 py-3 align-middle">
                       <div className="flex items-center gap-3">
@@ -844,7 +847,8 @@ const ResultsTable = ({ rows, openedScan, onCloseScan }) => {
                       </div>
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </React.Fragment>
             ))}
           </tbody>

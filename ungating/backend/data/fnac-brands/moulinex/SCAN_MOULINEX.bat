@@ -10,12 +10,13 @@ echo   SCAN KEEPA: Moulinex
 echo ========================================
 echo.
 echo Categorie: Electromenager
-echo Limite: 55 tokens max
+echo Mode: Scan complet (max 200 ASIN)
+echo Sauvegarde progressive - Ctrl+C pour arreter
 echo.
 echo ========================================
 echo.
 
-node analyze-brand.js "Moulinex" --category="Electromenager" --max-tokens=55
+node analyze-brand.js "Moulinex" --category="Electromenager"
 
 echo.
 echo ========================================

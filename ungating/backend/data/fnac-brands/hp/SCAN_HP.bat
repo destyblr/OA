@@ -10,12 +10,13 @@ echo   SCAN KEEPA: HP
 echo ========================================
 echo.
 echo Categorie: Informatique
-echo Limite: 55 tokens max
+echo Mode: Scan complet (max 200 ASIN)
+echo Sauvegarde progressive - Ctrl+C pour arreter
 echo.
 echo ========================================
 echo.
 
-node analyze-brand.js "HP" --category="Informatique" --max-tokens=55
+node analyze-brand.js "HP" --category="Informatique"
 
 echo.
 echo ========================================
