@@ -36,19 +36,42 @@ async function checkTokens() {
 }
 
 /**
- * Scanner la marque sur Keepa
+ * Attendre que les tokens se rechargent
+ */
+async function waitForTokens(needed) {
+  const current = await checkTokens();
+  if (current >= needed) return current;
+
+  const waitMinutes = needed - current;
+  console.log(`\n⏳ Attente de ${waitMinutes} minute(s) pour avoir ${needed} tokens...`);
+  console.log(`   Tokens actuels: ${current}`);
+  console.log(`   Tokens nécessaires: ${needed}`);
+
+  // Attendre par intervalles de 1 minute et afficher progression
+  for (let i = 0; i < waitMinutes; i++) {
+    await new Promise(resolve => setTimeout(resolve, 60000)); // 1 minute
+    const now = await checkTokens();
+    process.stdout.write(`\r   ⏳ Attente... ${i + 1}/${waitMinutes} min - Tokens: ${now}`);
+  }
+
+  console.log('\n   ✅ Tokens disponibles !');
+  return await checkTokens();
+}
+
+/**
+ * Scanner la marque sur Keepa avec système de batches
  */
 async function scanBrand() {
   console.log('\n🔍 SCAN KEEPA - ' + brandName.toUpperCase());
   console.log('='.repeat(70));
   console.log(`📦 Marque: ${brandName}`);
   console.log(`📂 Catégorie: ${category}`);
-  console.log(`🎫 Limite: ${maxTokens} tokens`);
+  console.log(`🔄 Mode: Batches automatiques (5 ASIN/batch)`);
   console.log('='.repeat(70));
 
-  // 1. Vérifier tokens
+  // 1. Vérifier tokens pour la query (besoin: 11 tokens)
   console.log('\n💰 Étape 1: Vérification tokens...');
-  const tokensAvailable = await checkTokens();
+  let tokensAvailable = await waitForTokens(11);
   console.log(`   Disponibles: ${tokensAvailable}`);
 
   if (tokensAvailable < maxTokens) {
@@ -96,68 +119,99 @@ async function scanBrand() {
     return { products: [], tokensUsed: 11 };
   }
 
-  // 3. Récupérer détails
-  console.log('\n📦 Étape 3: Récupération détails produits...');
+  // 3. Traiter par batches de 5 ASIN
+  console.log('\n📦 Étape 3: Traitement par batches (5 ASIN/batch)...');
 
-  const detailsResponse = await axios.get('https://api.keepa.com/product', {
-    params: {
-      key: KEEPA_API_KEY,
-      domain: 4,
-      asin: asins.join(','),
-      stats: 365  // Pas besoin d'offers, on filtre Amazon au niveau query
-    }
-  });
+  const BATCH_SIZE = 5;
+  const MAX_BATCHES = 10; // Limite de sécurité
+  const TOKENS_NEEDED_PER_BATCH = 50; // Sécurité: attendre d'avoir 50 tokens avant chaque batch
 
-  const allProducts = (detailsResponse.data.products || []).map(p => {
-    const lastBsr = p.csv?.[3]?.[p.csv[3].length - 1] || null;
-    const lastPrice = p.csv?.[1]?.[p.csv[1].length - 1] || null;
-    const sellersCount = p.csv?.[11]?.[p.csv[11].length - 1] || 0;
+  const batches = [];
+  for (let i = 0; i < asins.length; i += BATCH_SIZE) {
+    batches.push(asins.slice(i, i + BATCH_SIZE));
+  }
 
-    // Amazon est déjà filtré au niveau de la query (current_AMAZON: -1)
-    // Donc tous les produits ici n'ont PAS Amazon qui vend
-    const amazonSelling = false;
+  const totalBatches = Math.min(batches.length, MAX_BATCHES);
+  console.log(`   📊 ${asins.length} ASIN → ${totalBatches} batches à traiter`);
 
-    // Rating et avis depuis stats
-    const rating = p.stats?.avg?.rating || p.rating || null;
-    const reviewsCount = p.stats?.reviewCount || p.reviewCount || 0;
+  let allProducts = [];
+  let totalTokensUsed = 11; // Query déjà faite
 
-    return {
-      asin: p.asin,
-      brand: p.brand || brandName,
-      title: p.title,
-      bsr: lastBsr,
-      price: lastPrice ? lastPrice / 100 : null,
-      sellersCount: sellersCount,
-      amazonSelling: amazonSelling,
-      rating: rating ? rating / 10 : null, // Keepa rating est sur 50, on divise par 10 pour avoir sur 5
-      reviewsCount: reviewsCount,
-      imageUrl: p.imagesCSV ? `https://images-na.ssl-images-amazon.com/images/I/${p.imagesCSV.split(',')[0]}` : null,
-      category: category,
-      rootCategory: p.rootCategory
-    };
-  });
+  for (let batchIndex = 0; batchIndex < totalBatches; batchIndex++) {
+    const batch = batches[batchIndex];
+    const batchNum = batchIndex + 1;
 
-  // Filtrer: max 5 vendeurs (Amazon déjà filtré au niveau query)
-  const products = allProducts.filter(p => {
-    const passSellerFilter = p.sellersCount <= 5;
+    console.log(`\n   🔄 Batch ${batchNum}/${totalBatches} (${batch.length} ASIN)...`);
 
-    // Log des produits
-    if (!passSellerFilter) {
-      console.log(`   ❌ Exclu: ${p.asin} - Vendeurs: ${p.sellersCount} (max 5: ✗)`);
-    } else {
-      console.log(`   ✅ OK: ${p.asin} - Vendeurs: ${p.sellersCount}`);
-    }
+    // Attendre d'avoir 50 tokens avant de continuer
+    await waitForTokens(TOKENS_NEEDED_PER_BATCH);
 
-    return passSellerFilter;
-  });
+    // Récupérer détails avec offers pour ce batch
+    const detailsResponse = await axios.get('https://api.keepa.com/product', {
+      params: {
+        key: KEEPA_API_KEY,
+        domain: 4,
+        asin: batch.join(','),
+        stats: 365,
+        offers: 20  // Nécessaire pour détecter Amazon correctement
+      }
+    });
 
-  console.log(`   ✅ ${allProducts.length} produits trouvés → ${products.length} après filtre vendeurs (≤5, Amazon déjà exclu via query)`);
+    const batchTokenCost = batch.length * 7; // ~7 tokens/ASIN avec stats + offers
+    totalTokensUsed += batchTokenCost;
 
-  // Tokens utilisés
-  const tokensUsed = 11 + asins.length;
-  console.log(`\n🎫 Tokens utilisés: ${tokensUsed} (query: 11 + détails: ${asins.length})`);
+    const batchProducts = (detailsResponse.data.products || []).map(p => {
+      const lastBsr = p.csv?.[3]?.[p.csv[3].length - 1] || null;
+      const lastPrice = p.csv?.[1]?.[p.csv[1].length - 1] || null;
+      const sellersCount = p.csv?.[11]?.[p.csv[11].length - 1] || 0;
 
-  return { products, tokensUsed };
+      // Détecter Amazon via offers
+      const amazonSelling = p.offers && Array.isArray(p.offers)
+        ? p.offers.some(offer => offer.isAmazon === true)
+        : false;
+
+      // Rating et avis depuis stats
+      const rating = p.stats?.avg?.rating || p.rating || null;
+      const reviewsCount = p.stats?.reviewCount || p.reviewCount || 0;
+
+      return {
+        asin: p.asin,
+        brand: p.brand || brandName,
+        title: p.title,
+        bsr: lastBsr,
+        price: lastPrice ? lastPrice / 100 : null,
+        sellersCount: sellersCount,
+        amazonSelling: amazonSelling,
+        rating: rating ? rating / 10 : null,
+        reviewsCount: reviewsCount,
+        imageUrl: p.imagesCSV ? `https://images-na.ssl-images-amazon.com/images/I/${p.imagesCSV.split(',')[0]}` : null,
+        category: category,
+        rootCategory: p.rootCategory
+      };
+    });
+
+    // Filtrer: max 5 vendeurs ET Amazon ne vend pas
+    const goodProducts = batchProducts.filter(p => {
+      const passSellerFilter = p.sellersCount <= 5;
+      const passAmazonFilter = !p.amazonSelling;
+
+      if (!passSellerFilter || !passAmazonFilter) {
+        console.log(`      ❌ ${p.asin} - Vendeurs: ${p.sellersCount} ${passSellerFilter ? '✓' : '✗'} | Amazon: ${p.amazonSelling ? '✗ VEND' : '✓'}`);
+      } else {
+        console.log(`      ✅ ${p.asin} - Vendeurs: ${p.sellersCount} | OK`);
+      }
+
+      return passSellerFilter && passAmazonFilter;
+    });
+
+    allProducts = allProducts.concat(goodProducts);
+    console.log(`      → ${goodProducts.length}/${batch.length} produits OK (Total: ${allProducts.length})`);
+  }
+
+  console.log(`\n   ✅ Scan terminé: ${allProducts.length} produits rentables trouvés`);
+  console.log(`   🎫 Tokens utilisés: ${totalTokensUsed} (query: 11 + batches: ${totalTokensUsed - 11})`);
+
+  return { products: allProducts, tokensUsed: totalTokensUsed };
 }
 
 /**
