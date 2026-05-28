@@ -139,8 +139,8 @@ async function scanBrand() {
   console.log('\n🔍 Étape 2: Recherche produits Keepa...');
 
   const selection = {
-    current_SALES_gte: 1,
-    current_SALES_lte: 10000,
+    current_SALES_gte: 10000,  // Skip top 10k (zone Amazon)
+    current_SALES_lte: 30000,  // Jusqu'à 30k (10-50 ventes/mois)
     current_BUY_BOX_SHIPPING_gte: 1500,  // Prix min: 15€
     current_BUY_BOX_SHIPPING_lte: 5000,  // Prix max: 50€
     brandStoreName: [brandName.toLowerCase()]
@@ -248,29 +248,42 @@ async function scanBrand() {
       };
     });
 
-    // Filtrer: max 5 vendeurs ET Amazon ne vend pas
-    const goodProducts = batchProducts.filter(p => {
+    // Évaluer et marquer TOUS les produits avec leur status
+    const evaluatedProducts = batchProducts.map(p => {
       const passSellerFilter = p.sellersCount <= 5;
       const passAmazonFilter = !p.amazonSelling;
 
-      if (!passSellerFilter || !passAmazonFilter) {
-        console.log(`      ❌ ${p.asin} - Vendeurs: ${p.sellersCount} ${passSellerFilter ? '✓' : '✗'} | Amazon: ${p.amazonSelling ? '✗ VEND' : '✓'}`);
+      let status = 'approved';
+      let rejectionReason = null;
+
+      if (!passAmazonFilter && !passSellerFilter) {
+        status = 'rejected';
+        rejectionReason = 'both';
+        console.log(`      ❌ ${p.asin} - Vendeurs: ${p.sellersCount} ✗ | Amazon: ✗ VEND`);
+      } else if (!passAmazonFilter) {
+        status = 'rejected';
+        rejectionReason = 'amazon_sells';
+        console.log(`      ❌ ${p.asin} - Vendeurs: ${p.sellersCount} ✓ | Amazon: ✗ VEND`);
+      } else if (!passSellerFilter) {
+        status = 'rejected';
+        rejectionReason = 'too_many_sellers';
+        console.log(`      ❌ ${p.asin} - Vendeurs: ${p.sellersCount} ✗ | Amazon: ✓`);
       } else {
         console.log(`      ✅ ${p.asin} - Vendeurs: ${p.sellersCount} | OK`);
       }
 
-      return passSellerFilter && passAmazonFilter;
+      return { ...p, status, rejectionReason };
     });
 
-    // Sauvegarder ce batch immédiatement
-    if (goodProducts.length > 0) {
-      console.log(`      💾 Sauvegarde ${goodProducts.length} produit(s)...`);
-      const saved = await saveBatchToSupabase(goodProducts);
-      console.log(`      ✅ ${saved.length} sauvegardé(s) en DB`);
-    }
+    // Sauvegarder TOUS les produits (approved + rejected)
+    console.log(`      💾 Sauvegarde ${evaluatedProducts.length} produit(s)...`);
+    const saved = await saveBatchToSupabase(evaluatedProducts);
+    console.log(`      ✅ ${saved.length} sauvegardé(s) en DB`);
 
-    allProducts = allProducts.concat(goodProducts);
-    console.log(`      → Batch: ${goodProducts.length}/${batch.length} OK | Total cumulé: ${allProducts.length}`);
+    // Compter seulement les approved pour le total
+    const approvedProducts = evaluatedProducts.filter(p => p.status === 'approved');
+    allProducts = allProducts.concat(approvedProducts);
+    console.log(`      → Batch: ${approvedProducts.length}/${batch.length} OK | Total cumulé: ${allProducts.length}`);
     console.log(`      💡 Ctrl+C pour arrêter (données déjà sauvées)`);
   }
 
@@ -300,6 +313,8 @@ async function saveBatchToSupabase(products) {
         reviews_count: product.reviewsCount,
         image_url: product.imageUrl,
         category: product.category,
+        status: product.status || 'approved',
+        rejection_reason: product.rejectionReason || null,
         source: 'keepa_brand_scan',
         scanned_at: new Date().toISOString()
       }, {

@@ -1,22 +1,22 @@
 @echo off
 chcp 65001 >nul
-title Scan Keepa - HP
+title Scan Keepa - SEB
 
-cd /d "%~dp0..\..\..\"
+cd /d "%~dp0..\..\"
 
 echo.
 echo ========================================
-echo   SCAN KEEPA: HP
+echo   SCAN KEEPA: SEB
 echo ========================================
 echo.
-echo Categorie: Informatique
+echo Categorie: Electromenager
 echo Mode: Scan complet (max 200 ASIN)
 echo Sauvegarde progressive - Ctrl+C pour arreter
 echo.
 echo ========================================
 echo.
 
-node analyze-brand.js "HP" --category="Informatique"
+node analyze-brand.js "SEB" --category="Electromenager"
 
 echo.
 echo ========================================

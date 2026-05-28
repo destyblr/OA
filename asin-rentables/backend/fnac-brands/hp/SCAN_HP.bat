@@ -1,22 +1,22 @@
 @echo off
 chcp 65001 >nul
-title Scan Keepa - Moulinex
+title Scan Keepa - HP
 
-cd /d "%~dp0..\..\..\"
+cd /d "%~dp0..\..\"
 
 echo.
 echo ========================================
-echo   SCAN KEEPA: Moulinex
+echo   SCAN KEEPA: HP
 echo ========================================
 echo.
-echo Categorie: Electromenager
+echo Categorie: Informatique
 echo Mode: Scan complet (max 200 ASIN)
 echo Sauvegarde progressive - Ctrl+C pour arreter
 echo.
 echo ========================================
 echo.
 
-node analyze-brand.js "Moulinex" --category="Electromenager"
+node analyze-brand.js "HP" --category="Informatique"
 
 echo.
 echo ========================================

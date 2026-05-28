@@ -1,22 +1,22 @@
 @echo off
 chcp 65001 >nul
-title Scan Keepa - BaByliss
+title Scan Keepa - Bic
 
-cd /d "%~dp0..\..\.."
+cd /d "%~dp0..\..\"
 
 echo.
 echo ========================================
-echo   SCAN KEEPA: BaByliss
+echo   SCAN KEEPA: Bic
 echo ========================================
 echo.
-echo Categorie: Beaute
+echo Categorie: Fournitures
 echo Mode: Scan complet (max 200 ASIN)
 echo Sauvegarde progressive - Ctrl+C pour arreter
 echo.
 echo ========================================
 echo.
 
-node analyze-brand.js "BaByliss" --category="Beaute"
+node analyze-brand.js "Bic" --category="Fournitures"
 
 echo.
 echo ========================================

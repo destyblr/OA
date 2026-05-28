@@ -1,12 +1,12 @@
 @echo off
 chcp 65001 >nul
-title Scan Keepa - Delonghi
+title Scan Keepa - Moulinex
 
-cd /d "%~dp0..\..\..\"
+cd /d "%~dp0..\..\"
 
 echo.
 echo ========================================
-echo   SCAN KEEPA: Delonghi
+echo   SCAN KEEPA: Moulinex
 echo ========================================
 echo.
 echo Categorie: Electromenager
@@ -16,7 +16,7 @@ echo.
 echo ========================================
 echo.
 
-node analyze-brand.js "Delonghi" --category="Electromenager"
+node analyze-brand.js "Moulinex" --category="Electromenager"
 
 echo.
 echo ========================================

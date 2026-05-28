@@ -1057,8 +1057,8 @@ const AsinRentablesView = () => {
 
   const loadStats = async () => {
     try {
-      // Charger stats depuis profitable_asins
-      const { data: profitableAsins } = await supabase.from('profitable_asins').select('*');
+      // Charger stats depuis profitable_asins (seulement approved)
+      const { data: profitableAsins } = await supabase.from('profitable_asins').select('*').eq('status', 'approved');
 
       // Compter les marques uniques
       const uniqueBrands = [...new Set(profitableAsins?.map(a => a.brand))];
@@ -1090,10 +1090,11 @@ const AsinRentablesView = () => {
 
   const loadBrands = async () => {
     try {
-      // Charger tous les ASIN rentables
+      // Charger tous les ASIN rentables (seulement approved)
       const { data: allProducts, error } = await supabase
         .from('profitable_asins')
-        .select('*');
+        .select('*')
+        .eq('status', 'approved');
 
       if (error) throw error;
 
@@ -1145,7 +1146,7 @@ const AsinRentablesView = () => {
 
   const loadProfitableAsins = async () => {
     try {
-      let query = supabase.from('profitable_asins').select('*');
+      let query = supabase.from('profitable_asins').select('*').eq('status', 'approved');
 
       if (filters.profitableBrand) {
         query = query.ilike('brand', `%${filters.profitableBrand}%`);

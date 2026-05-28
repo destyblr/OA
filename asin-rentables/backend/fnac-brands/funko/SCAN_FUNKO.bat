@@ -1,12 +1,12 @@
 @echo off
 chcp 65001 >nul
-title Scan Keepa - Lego
+title Scan Keepa - Funko
 
-cd /d "%~dp0..\..\..\backend"
+cd /d "%~dp0..\..\"
 
 echo.
 echo ========================================
-echo   SCAN KEEPA: Lego
+echo   SCAN KEEPA: Funko
 echo ========================================
 echo.
 echo Categorie: Jouets
@@ -16,7 +16,7 @@ echo.
 echo ========================================
 echo.
 
-node analyze-brand.js "Lego" --category="Jouets"
+node analyze-brand.js "Funko" --category="Jouets"
 
 echo.
 echo ========================================

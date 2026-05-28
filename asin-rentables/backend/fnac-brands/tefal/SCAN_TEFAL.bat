@@ -2,7 +2,7 @@
 chcp 65001 >nul
 title Scan Keepa - Tefal
 
-cd /d "%~dp0..\..\..\"
+cd /d "%~dp0..\..\"
 
 echo.
 echo ========================================
