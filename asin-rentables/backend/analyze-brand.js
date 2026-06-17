@@ -139,8 +139,8 @@ async function scanBrand() {
   console.log('\n🔍 Étape 2: Recherche produits Keepa...');
 
   const selection = {
-    current_SALES_gte: 10000,  // Skip top 10k (zone Amazon)
-    current_SALES_lte: 30000,  // Jusqu'à 30k (10-50 ventes/mois)
+    current_SALES_gte: 15000,  // Skip top 15k (zone Amazon)
+    current_SALES_lte: 25000,  // Jusqu'à 25k (8-25 ventes/mois)
     current_BUY_BOX_SHIPPING_gte: 1500,  // Prix min: 15€
     current_BUY_BOX_SHIPPING_lte: 5000,  // Prix max: 50€
     brandStoreName: [brandName.toLowerCase()]
@@ -250,7 +250,7 @@ async function scanBrand() {
 
     // Évaluer et marquer TOUS les produits avec leur status
     const evaluatedProducts = batchProducts.map(p => {
-      const passSellerFilter = p.sellersCount <= 5;
+      const passSellerFilter = p.sellersCount <= 8;  // Max 8 vendeurs (compromis)
       const passAmazonFilter = !p.amazonSelling;
 
       let status = 'approved';
